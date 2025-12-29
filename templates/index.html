@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stable Diffusion Generator</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Stable Diffusion Generator</h1>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="serverStatus"></div>
+                <span>Server: <span id="serverStatusText">Offline</span></span>
+            </div>
+            <div class="status-item">
+                <span>Model: <span id="currentModelText">None</span></span>
+            </div>
+            <div class="status-item">
+                <span>Type: <span id="currentModelTypeText">-</span></span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="txt2img">Text to Image</button>
+            <button class="tab-btn" data-tab="img2img">Image to Image</button>
+            <button class="tab-btn" data-tab="video">Video</button>
+            <button class="tab-btn" data-tab="gallery">Gallery</button>
+            <button class="tab-btn" data-tab="settings">Settings</button>
+        </div>
+
+        <div id="messageArea"></div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <!-- Model Type Section -->
+                <div class="section">
+                    <div class="section-title">Model Type</div>
+                    <div class="form-group">
+                        <label for="modelType">Select Model Type</label>
+                        <select id="modelType">
+                            <!-- Populated dynamically from config -->
+                        </select>
+                        <div class="info-text" id="modelTypeInfo"></div>
+                    </div>
+                </div>
+
+                <!-- Model Selection Section -->
+                <div class="section">
+                    <div class="section-title">Model Selection</div>
+                    <div id="modelConfigSection" class="model-config-section">
+                        <!-- Dynamically populated based on model type -->
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <button class="btn btn-primary" id="loadModelBtn">Load Model</button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary" id="unloadModelBtn">Unload Model</button>
+                    </div>
+                </div>
+
+                <!-- Generation Settings Section -->
+                <div class="section">
+                    <div class="section-title">Generation Settings</div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="width">Width</label>
+                            <input type="number" id="width" min="64" max="2048" step="64">
+                        </div>
+                        <div class="form-group">
+                            <label for="height">Height</label>
+                            <input type="number" id="height" min="64" max="2048" step="64">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="steps">Steps: <span id="stepsValue"></span></label>
+                        <div class="slider-container">
+                            <input type="range" id="steps" min="1" max="100">
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="cfgGroup">
+                        <label for="cfgScale">CFG Scale: <span id="cfgScaleValue"></span></label>
+                        <div class="slider-container">
+                            <input type="range" id="cfgScale" min="1" max="20" step="0.5">
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="guidanceGroup">
+                        <label for="guidance">Guidance: <span id="guidanceValue"></span></label>
+                        <div class="slider-container">
+                            <input type="range" id="guidance" min="1" max="10" step="0.1">
+                        </div>
+                        <div class="info-text">Distilled guidance scale</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="seed">Seed (-1 for random)</label>
+                        <input type="number" id="seed" value="-1">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sampler">Sampler</label>
+                        <select id="sampler">
+                            <!-- Populated dynamically from config -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scheduler">Scheduler</label>
+                        <select id="scheduler">
+                            <!-- Populated dynamically from config -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Advanced Options Section -->
+                <div class="section">
+                    <div class="section-title">Advanced Options</div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="vaeTiling">
+                            <label for="vaeTiling">VAE Tiling (low VRAM)</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="offloadCpu">
+                            <label for="offloadCpu">Offload to CPU</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="diffusionFa">
+                            <label for="diffusionFa">Flash Attention</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="flowShift">Flow Shift (auto if empty)</label>
+                        <input type="text" id="flowShift" placeholder="auto">
+                        <div class="info-text">For SD3.x or Wan models</div>
+                    </div>
+                </div>
+
+                <!-- Video Options Section (Wan only) -->
+                <div class="section" id="videoOptionsSection">
+                    <div class="section-title">Video Options</div>
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="videoFrames">Frames</label>
+                            <input type="number" id="videoFrames" min="1" max="128">
+                        </div>
+                        <div class="form-group">
+                            <label for="fps">FPS</label>
+                            <input type="number" id="fps" min="1" max="60">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="moeBoundary">MoE Boundary: <span id="moeBoundaryValue"></span></label>
+                        <div class="slider-container">
+                            <input type="range" id="moeBoundary" min="0" max="1" step="0.025">
+                        </div>
+                        <div class="info-text">Timestep boundary for Wan2.2 MoE model</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <!-- Text to Image Tab -->
+                <div class="tab-content active" id="txt2img-tab">
+                    <div class="section">
+                        <div class="form-group">
+                            <label for="prompt">Prompt</label>
+                            <textarea id="prompt" placeholder="Enter your prompt here..."></textarea>
+                        </div>
+
+                        <div class="form-group" id="negativePromptGroup">
+                            <label for="negativePrompt">Negative Prompt</label>
+                            <textarea id="negativePrompt" placeholder="Enter negative prompt here..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <button class="btn btn-primary" id="generateBtn">Generate</button>
+                        </div>
+                    </div>
+
+                    <div class="output-area">
+                        <div class="loading" id="loadingIndicator">
+                            <div class="spinner"></div>
+                            <p>Generating image...</p>
+                        </div>
+
+                        <div class="image-container" id="outputContainer">
+                            <div class="placeholder">
+                                <div class="placeholder-icon">[IMG]</div>
+                                <p>Generated image will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image to Image Tab -->
+                <div class="tab-content" id="img2img-tab">
+                    <div class="section">
+                        <div class="form-group">
+                            <label for="initImage">Input Image</label>
+                            <input type="file" id="initImage" accept="image/*">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="img2imgPrompt">Prompt</label>
+                            <textarea id="img2imgPrompt" placeholder="Enter your prompt here..."></textarea>
+                        </div>
+
+                        <div class="form-group" id="img2imgNegativePromptGroup">
+                            <label for="img2imgNegativePrompt">Negative Prompt</label>
+                            <textarea id="img2imgNegativePrompt" placeholder="Enter negative prompt here..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="strength">Strength: <span id="strengthValue"></span></label>
+                            <div class="slider-container">
+                                <input type="range" id="strength" min="0" max="1" step="0.05">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <button class="btn btn-primary" id="img2imgGenerateBtn">Generate</button>
+                        </div>
+                    </div>
+
+                    <div class="output-area">
+                        <div class="loading" id="img2imgLoadingIndicator">
+                            <div class="spinner"></div>
+                            <p>Generating image...</p>
+                        </div>
+
+                        <div class="image-container" id="img2imgOutputContainer">
+                            <div class="placeholder">
+                                <div class="placeholder-icon">[IMG]</div>
+                                <p>Generated image will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video Tab -->
+                <div class="tab-content" id="video-tab">
+                    <div class="section">
+                        <div class="form-group">
+                            <label for="videoPrompt">Prompt</label>
+                            <textarea id="videoPrompt" placeholder="Describe the video you want to generate..."></textarea>
+                        </div>
+
+                        <div class="form-group" id="videoNegativePromptGroup">
+                            <label for="videoNegativePrompt">Negative Prompt</label>
+                            <textarea id="videoNegativePrompt" placeholder="Enter negative prompt here..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="videoInitImage">Init Image (optional)</label>
+                            <input type="file" id="videoInitImage" accept="image/*">
+                        </div>
+
+                        <div class="form-group">
+                            <button class="btn btn-primary" id="videoGenerateBtn">Generate Video</button>
+                        </div>
+                    </div>
+
+                    <div class="output-area">
+                        <div class="loading" id="videoLoadingIndicator">
+                            <div class="spinner"></div>
+                            <p>Generating video...</p>
+                        </div>
+
+                        <div class="image-container" id="videoOutputContainer">
+                            <div class="placeholder">
+                                <div class="placeholder-icon">[VID]</div>
+                                <p>Generated video will appear here</p>
+                                <p class="info-text">Requires Wan model to be loaded</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gallery Tab -->
+                <div class="tab-content" id="gallery-tab">
+                    <div class="section">
+                        <div class="section-title">Generated Images</div>
+                        <button class="btn btn-secondary" id="refreshGalleryBtn">Refresh Gallery</button>
+                        <div class="gallery-grid" id="galleryGrid"></div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div class="tab-content" id="settings-tab">
+                    <div class="section">
+                        <div class="section-title">Server Configuration</div>
+
+                        <div class="form-group">
+                            <label for="threads">Threads</label>
+                            <input type="number" id="threads" value="4" min="1" max="128">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="serverPort">Server Port</label>
+                            <input type="number" id="serverPort" value="8080" min="1024" max="65535">
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Paths</div>
+
+                        <div class="form-group">
+                            <label for="loraDir">LoRA Directory</label>
+                            <input type="text" id="loraDir" value="/app/models/loras" placeholder="/app/models/loras">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="embdDir">Embeddings Directory</label>
+                            <input type="text" id="embdDir" value="/app/models/embeddings" placeholder="/app/models/embeddings">
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Server Log</div>
+                        <button class="btn btn-secondary" id="refreshLogBtn">Refresh Log</button>
+                        <div class="log-output" id="serverLog">No log data</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="modal" id="imageModal">
+        <span class="modal-close" id="modalClose">X</span>
+        <img src="" alt="Full size image" id="modalImage">
+    </div>
+
+    <script src="/scripts/sd_gui.js"></script>
+</body>
+</html>

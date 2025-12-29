@@ -1,0 +1,32 @@
+services:
+  sd_container:
+    container_name: sd_container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+      - "8080:8080"
+    volumes:
+      - ./:/app/
+      - ../stable-diffusion.cpp/build/bin/:/usr/local/bin/
+      - ../stable-diffusion.cpp/models:/app/models:ro
+      - ../stable-diffusion.cpp/output:/app/output
+    environment:
+      - FLASK_ENV=development
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    runtime: nvidia
+    command: python app.py
+
+volumes:
+  models:
+  output:
+  templates:

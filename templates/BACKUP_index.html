@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stable Diffusion Generator</title>
+<style>
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+}
+
+body {
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+min-height: 100vh;
+color: #e4e4e4;
+}
+
+.container {
+max-width: 1400px;
+margin: 0 auto;
+padding: 20px;
+}
+
+header {
+text-align: center;
+padding: 20px 0 30px;
+}
+
+header h1 {
+font-size: 2.5rem;
+background: linear-gradient(90deg, #00d4ff, #7b2fff);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+}
+
+.status-bar {
+display: flex;
+justify-content: center;
+gap: 20px;
+margin-bottom: 20px;
+flex-wrap: wrap;
+}
+
+.status-item {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 8px 16px;
+background: rgba(255, 255, 255, 0.1);
+border-radius: 20px;
+font-size: 0.9rem;
+}
+
+.status-dot {
+width: 10px;
+height: 10px;
+border-radius: 50%;
+background: #ff4444;
+}
+
+.status-dot.active {
+background: #44ff44;
+box-shadow: 0 0 10px #44ff44;
+}
+
+.tabs {
+display: flex;
+justify-content: center;
+gap: 10px;
+margin-bottom: 20px;
+flex-wrap: wrap;
+}
+
+.tab-btn {
+padding: 12px 24px;
+background: rgba(255, 255, 255, 0.1);
+border: none;
+border-radius: 8px;
+color: #e4e4e4;
+cursor: pointer;
+transition: all 0.3s ease;
+font-size: 1rem;
+}
+
+.tab-btn:hover {
+background: rgba(255, 255, 255, 0.2);
+}
+
+.tab-btn.active {
+background: linear-gradient(90deg, #00d4ff, #7b2fff);
+color: white;
+}
+
+.main-content {
+display: grid;
+grid-template-columns: 380px 1fr;
+gap: 20px;
+}
+
+@media (max-width: 900px) {
+.main-content {
+grid-template-columns: 1fr;
+}
+}
+
+.sidebar {
+background: rgba(255, 255, 255, 0.05);
+border-radius: 16px;
+padding: 20px;
+max-height: calc(100vh - 200px);
+overflow-y: auto;
+}
+
+.panel {
+background: rgba(255, 255, 255, 0.05);
+border-radius: 16px;
+padding: 20px;
+}
+
+.section {
+margin-bottom: 20px;
+}
+
+.section-title {
+font-size: 1.1rem;
+font-weight: 600;
+margin-bottom: 12px;
+color: #00d4ff;
+}
+
+.form-group {
+margin-bottom: 15px;
+}
+
+.form-group label {
+display: block;
+margin-bottom: 6px;
+font-size: 0.9rem;
+color: #aaa;
+}
+
+.form-group.required label::after {
+content: " *";
+color: #ff6b6b;
+}
+
+select, input[type="text"], input[type="number"], textarea {
+width: 100%;
+padding: 10px 12px;
+background: rgba(0, 0, 0, 0.3);
+border: 1px solid rgba(255, 255, 255, 0.1);
+border-radius: 8px;
+color: #e4e4e4;
+font-size: 0.95rem;
+}
+
+select:focus, input:focus, textarea:focus {
+outline: none;
+border-color: #00d4ff;
+}
+
+textarea {
+resize: vertical;
+min-height: 100px;
+}
+
+.btn {
+padding: 12px 24px;
+border: none;
+border-radius: 8px;
+cursor: pointer;
+font-size: 1rem;
+transition: all 0.3s ease;
+width: 100%;
+}
+
+.btn-primary {
+background: linear-gradient(90deg, #00d4ff, #7b2fff);
+color: white;
+}
+
+.btn-primary:hover {
+opacity: 0.9;
+transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+opacity: 0.5;
+cursor: not-allowed;
+transform: none;
+}
+
+.btn-secondary {
+background: rgba(255, 255, 255, 0.1);
+color: #e4e4e4;
+}
+
+.btn-secondary:hover {
+background: rgba(255, 255, 255, 0.2);
+}
+
+.output-area {
+min-height: 400px;
+display: flex;
+flex-direction: column;
+}
+
+.image-container {
+flex: 1;
+display: flex;
+align-items: center;
+justify-content: center;
+background: rgba(0, 0, 0, 0.3);
+border-radius: 12px;
+overflow: hidden;
+min-height: 300px;
+}
+
+.image-container img {
+max-width: 100%;
+max-height: 600px;
+object-fit: contain;
+}
+
+.placeholder {
+color: #666;
+text-align: center;
+}
+
+.placeholder-icon {
+font-size: 4rem;
+margin-bottom: 10px;
+color: #444;
+}
+
+.slider-container {
+display: flex;
+align-items: center;
+gap: 10px;
+}
+
+.slider-container input[type="range"] {
+flex: 1;
+}
+
+input[type="range"] {
+-webkit-appearance: none;
+background: rgba(0, 0, 0, 0.3);
+border-radius: 4px;
+height: 8px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+-webkit-appearance: none;
+width: 18px;
+height: 18px;
+background: #00d4ff;
+border-radius: 50%;
+cursor: pointer;
+}
+
+.loading {
+display: none;
+text-align: center;
+padding: 40px;
+}
+
+.loading.active {
+display: block;
+}
+
+.spinner {
+width: 50px;
+height: 50px;
+border: 4px solid rgba(255, 255, 255, 0.1);
+border-top-color: #00d4ff;
+border-radius: 50%;
+animation: spin 1s linear infinite;
+margin: 0 auto 20px;
+}
+
+@keyframes spin {
+to { transform: rotate(360deg); }
+}
+
+.error-message {
+background: rgba(255, 68, 68, 0.2);
+border: 1px solid #ff4444;
+border-radius: 8px;
+padding: 12px;
+margin-bottom: 15px;
+color: #ff6b6b;
+}
+
+.success-message {
+background: rgba(68, 255, 68, 0.2);
+border: 1px solid #44ff44;
+border-radius: 8px;
+padding: 12px;
+margin-bottom: 15px;
+color: #6bff6b;
+}
+
+.tab-content {
+display: none;
+}
+
+.tab-content.active {
+display: block;
+}
+
+.model-info {
+font-size: 0.85rem;
+color: #888;
+margin-top: 5px;
+}
+
+.row {
+display: flex;
+gap: 10px;
+}
+
+.row .form-group {
+flex: 1;
+}
+
+.gallery-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+gap: 10px;
+margin-top: 15px;
+}
+
+.gallery-item {
+aspect-ratio: 1;
+border-radius: 8px;
+overflow: hidden;
+cursor: pointer;
+transition: transform 0.3s ease;
+}
+
+.gallery-item:hover {
+transform: scale(1.05);
+}
+
+.gallery-item img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.modal {
+display: none;
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background: rgba(0, 0, 0, 0.9);
+z-index: 1000;
+align-items: center;
+justify-content: center;
+}
+
+.modal.active {
+display: flex;
+}
+
+.modal img {
+max-width: 90%;
+max-height: 90%;
+object-fit: contain;
+}
+
+.modal-close {
+position: absolute;
+top: 20px;
+right: 30px;
+font-size: 2rem;
+color: white;
+cursor: pointer;
+}
+
+.log-output {
+background: rgba(0, 0, 0, 0.5);
+border-radius: 8px;
+padding: 15px;
+font-family: monospace;
+font-size: 0.85rem;
+max-height: 300px;
+overflow-y: auto;
+white-space: pre-wrap;
+word-break: break-all;
+}
+
+.model-config-section {
+background: rgba(0, 0, 0, 0.2);
+border-radius: 8px;
+padding: 15px;
+margin-top: 10px;
+}
+
+.model-config-section .section-title {
+font-size: 0.95rem;
+margin-bottom: 10px;
+}
+
+.hidden {
+display: none !important;
+}
+
+.checkbox-group {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.checkbox-group input[type="checkbox"] {
+width: 18px;
+height: 18px;
+}
+
+.info-text {
+font-size: 0.8rem;
+color: #888;
+margin-top: 4px;
+}
+
+.model-count {
+font-size: 0.8rem;
+color: #00d4ff;
+margin-left: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>Stable Diffusion Generator</h1>
+</header>
+
+<div class="status-bar">
+<div class="status-item">
+<div class="status-dot" id="serverStatus"></div>
+<span>Server: <span id="serverStatusText">Offline</span></span>
+</div>
+<div class="status-item">
+<span>Model: <span id="currentModelText">None</span></span>
+</div>
+<div class="status-item">
+<span>Type: <span id="currentModelTypeText">-</span></span>
+</div>
+</div>
+
+<div class="tabs">
+<button class="tab-btn active" data-tab="txt2img">Text to Image</button>
+<button class="tab-btn" data-tab="img2img">Image to Image</button>
+<button class="tab-btn" data-tab="video">Video (Wan)</button>
+<button class="tab-btn" data-tab="gallery">Gallery</button>
+<button class="tab-btn" data-tab="settings">Settings</button>
+</div>
+
+<div id="messageArea"></div>
+
+<div class="main-content">
+<div class="sidebar">
+<div class="section">
+<div class="section-title">Model Type</div>
+
+<div class="form-group">
+<label for="modelType">Select Model Type</label>
+<select id="modelType">
+<option value="z_image" selected>Z-Image</option>
+<option value="flux">Flux</option>
+<option value="sd3">SD3.5</option>
+<option value="wan">Wan (Video/Image)</option>
+</select>
+<div class="info-text" id="modelTypeInfo">Z-Image models with LLM integration</div>
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">Model Selection</div>
+
+<!-- Z-Image Model Config (Default) -->
+<div id="zImageConfig" class="model-config-section">
+<div class="form-group required">
+<label for="zDiffusionModel">Diffusion Model<span class="model-count" id="zDiffusionCount"></span></label>
+<select id="zDiffusionModel">
+<option value="">Select a model...</option>
+</select>
+</div>
+
+<div class="form-group required">
+<label for="zLlmModel">LLM Model<span class="model-count" id="zLlmCount"></span></label>
+<select id="zLlmModel">
+<option value="">Select LLM...</option>
+</select>
+<div class="info-text">Required for Z-Image generation</div>
+</div>
+
+<div class="form-group">
+<label for="zVaeModel">VAE Model (Optional)<span class="model-count" id="zVaeCount"></span></label>
+<select id="zVaeModel">
+<option value="">None (use embedded)</option>
+</select>
+</div>
+</div>
+
+<!-- Flux/SD3 Model Config -->
+<div id="fluxSd3Config" class="model-config-section hidden">
+<div class="form-group required">
+<label for="diffusionModel">Diffusion Model<span class="model-count" id="diffusionCount"></span></label>
+<select id="diffusionModel">
+<option value="">Select a model...</option>
+</select>
+<div class="model-info" id="diffusionModelInfo"></div>
+</div>
+
+<div class="form-group">
+<label for="clipLModel">CLIP-L Model<span class="model-count" id="clipLCount"></span></label>
+<select id="clipLModel">
+<option value="">None (use embedded)</option>
+</select>
+</div>
+
+<div class="form-group" id="clipGGroup">
+<label for="clipGModel">CLIP-G Model (SD3 only)</label>
+<select id="clipGModel">
+<option value="">None (use embedded)</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="t5xxlModel">T5-XXL Model<span class="model-count" id="t5Count"></span></label>
+<select id="t5xxlModel">
+<option value="">None (use embedded)</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="vaeModel">VAE Model</label>
+<select id="vaeModel">
+<option value="">None (use embedded)</option>
+</select>
+</div>
+</div>
+
+<!-- Wan Model Config -->
+<div id="wanConfig" class="model-config-section hidden">
+<div class="form-group required">
+<label for="wanDiffusionModel">Diffusion Model<span class="model-count" id="wanDiffusionCount"></span></label>
+<select id="wanDiffusionModel">
+<option value="">Select a model...</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="wanHighNoiseDiffusionModel">High Noise Diffusion Model (MoE)</label>
+<select id="wanHighNoiseDiffusionModel">
+<option value="">None</option>
+</select>
+<div class="info-text">For Wan2.2 MoE models</div>
+</div>
+
+<div class="form-group required">
+<label for="wanLlmModel">VL LLM Model<span class="model-count" id="wanLlmCount"></span></label>
+<select id="wanLlmModel">
+<option value="">Select VL LLM...</option>
+</select>
+<div class="info-text">Vision-Language LLM for Wan</div>
+</div>
+
+<div class="form-group">
+<label for="wanLlmVisionModel">LLM Vision Model</label>
+<select id="wanLlmVisionModel">
+<option value="">None</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="wanClipModel">CLIP Vision Model</label>
+<select id="wanClipModel">
+<option value="">None</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="wanT5xxlModel">T5-XXL Model</label>
+<select id="wanT5xxlModel">
+<option value="">None (use embedded)</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="wanVaeModel">VAE Model</label>
+<select id="wanVaeModel">
+<option value="">None (use embedded)</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="moeBoundary">MoE Boundary: <span id="moeBoundaryValue">0.875</span></label>
+<div class="slider-container">
+<input type="range" id="moeBoundary" min="0" max="1" step="0.025" value="0.875">
+</div>
+<div class="info-text">Timestep boundary for Wan2.2 MoE model</div>
+</div>
+</div>
+
+<div class="form-group" style="margin-top: 15px;">
+<button class="btn btn-primary" id="loadModelBtn">Load Model</button>
+</div>
+
+<div class="form-group">
+<button class="btn btn-secondary" id="unloadModelBtn">Unload Model</button>
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">Generation Settings</div>
+
+<div class="row">
+<div class="form-group">
+<label for="width">Width</label>
+<input type="number" id="width" name="width" min="64" max="2048" value="512" required>
+</div>
+
+<div class="form-group">
+<label for="height">Height</label>
+<input type="number" id="height" name="height" min="64" max="2048" value="512" required>
+</div>
+</div>
+
+<div class="form-group">
+<label for="steps">Steps: <span id="stepsValue">20</span></label>
+<div class="slider-container">
+<input type="range" id="steps" min="1" max="100" value="20">
+</div>
+</div>
+
+<div class="form-group">
+<label for="cfgScale">CFG Scale: <span id="cfgScaleValue">7.0</span></label>
+<div class="slider-container">
+<input type="range" id="cfgScale" min="1" max="20" step="0.5" value="7">
+</div>
+</div>
+
+<div class="form-group" id="guidanceGroup">
+<label for="guidance">Guidance: <span id="guidanceValue">3.5</span></label>
+<div class="slider-container">
+<input type="range" id="guidance" min="1" max="10" step="0.1" value="3.5">
+</div>
+<div class="info-text">Distilled guidance scale</div>
+</div>
+
+<div class="form-group">
+<label for="seed">Seed (-1 for random)</label>
+<input type="number" id="seed" value="-1">
+</div>
+
+<div class="form-group">
+<label for="sampler">Sampler</label>
+<select id="sampler">
+<option value="euler" selected>Euler</option>
+<option value="euler_a">Euler Ancestral</option>
+<option value="heun">Heun</option>
+<option value="dpm2">DPM2</option>
+<option value="dpm++2m">DPM++ 2M</option>
+<option value="dpm++2mv2">DPM++ 2M v2</option>
+<option value="dpm++2s_a">DPM++ 2S Ancestral</option>
+<option value="ipndm">iPNDM</option>
+<option value="ipndm_v">iPNDM v</option>
+<option value="lcm">LCM</option>
+<option value="ddim_trailing">DDIM Trailing</option>
+<option value="tcd">TCD</option>
+</select>
+</div>
+
+<div class="form-group">
+<label for="scheduler">Scheduler</label>
+<select id="scheduler">
+<option value="discrete" selected>Discrete</option>
+<option value="karras">Karras</option>
+<option value="exponential">Exponential</option>
+<option value="ays">AYS</option>
+<option value="gits">GITS</option>
+<option value="smoothstep">Smoothstep</option>
+<option value="sgm_uniform">SGM Uniform</option>
+<option value="simple">Simple</option>
+<option value="kl_optimal">KL Optimal</option>
+<option value="lcm">LCM</option>
+</select>
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">Advanced Options</div>
+
+<div class="form-group">
+<div class="checkbox-group">
+<input type="checkbox" id="vaeTiling" checked>
+<label for="vaeTiling">VAE Tiling (low VRAM)</label>
+</div>
+</div>
+
+<div class="form-group">
+<div class="checkbox-group">
+<input type="checkbox" id="offloadCpu" checked>
+<label for="offloadCpu">Offload to CPU</label>
+</div>
+</div>
+
+<div class="form-group">
+<div class="checkbox-group">
+<input type="checkbox" id="diffusionFa" checked>
+<label for="diffusionFa">Flash Attention</label>
+</div>
+</div>
+
+<div class="form-group">
+<label for="flowShift">Flow Shift (auto if empty)</label>
+<input type="number" id="flowShift" placeholder="auto" step="0.1">
+<div class="info-text">For SD3.x or Wan models</div>
+</div>
+</div>
+</div>
+
+<div class="panel">
+<!-- Text to Image Tab -->
+<div class="tab-content active" id="txt2img-tab">
+<div class="section">
+<div class="form-group">
+<label for="prompt">Prompt</label>
+<textarea id="prompt" placeholder="Enter your prompt here..."></textarea>
+</div>
+
+<div class="form-group">
+<label for="negativePrompt">Negative Prompt</label>
+<textarea id="negativePrompt" placeholder="Enter negative prompt here..."></textarea>
+</div>
+
+<div class="form-group">
+<button class="btn btn-primary" id="generateBtn">Generate</button>
+</div>
+</div>
+
+<div class="output-area">
+<div class="loading" id="loadingIndicator">
+<div class="spinner"></div>
+<p>Generating image...</p>
+</div>
+
+<div class="image-container" id="outputContainer">
+<div class="placeholder">
+<div class="placeholder-icon">[IMG]</div>
+<p>Generated image will appear here</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Image to Image Tab -->
+<div class="tab-content" id="img2img-tab">
+<div class="section">
+<div class="form-group">
+<label for="initImage">Input Image</label>
+<input type="file" id="initImage" accept="image/*">
+</div>
+
+<div class="form-group">
+<label for="img2imgPrompt">Prompt</label>
+<textarea id="img2imgPrompt" placeholder="Enter your prompt here..."></textarea>
+</div>
+
+<div class="form-group">
+<label for="img2imgNegativePrompt">Negative Prompt</label>
+<textarea id="img2imgNegativePrompt" placeholder="Enter negative prompt here..."></textarea>
+</div>
+
+<div class="form-group">
+<label for="strength">Strength: <span id="strengthValue">0.75</span></label>
+<div class="slider-container">
+<input type="range" id="strength" min="0" max="1" step="0.05" value="0.75">
+</div>
+</div>
+
+<div class="form-group">
+<button class="btn btn-primary" id="img2imgGenerateBtn">Generate</button>
+</div>
+</div>
+
+<div class="output-area">
+<div class="loading" id="img2imgLoadingIndicator">
+<div class="spinner"></div>
+<p>Generating image...</p>
+</div>
+
+<div class="image-container" id="img2imgOutputContainer">
+<div class="placeholder">
+<div class="placeholder-icon">[IMG]</div>
+<p>Generated image will appear here</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Video Tab (Wan) -->
+<div class="tab-content" id="video-tab">
+<div class="section">
+<div class="form-group">
+<label for="videoPrompt">Prompt</label>
+<textarea id="videoPrompt" placeholder="Describe the video you want to generate..."></textarea>
+</div>
+
+<div class="form-group">
+<label for="videoNegativePrompt">Negative Prompt</label>
+<textarea id="videoNegativePrompt" placeholder="Enter negative prompt here..."></textarea>
+</div>
+
+<div class="row">
+<div class="form-group">
+<label for="videoFrames">Video Frames</label>
+<input type="number" id="videoFrames" value="16" min="1" max="128">
+</div>
+
+<div class="form-group">
+<label for="fps">FPS</label>
+<input type="number" id="fps" value="24" min="1" max="60">
+</div>
+</div>
+
+<div class="form-group">
+<label for="videoInitImage">Init Image (optional)</label>
+<input type="file" id="videoInitImage" accept="image/*">
+</div>
+
+<div class="form-group">
+<button class="btn btn-primary" id="videoGenerateBtn">Generate Video</button>
+</div>
+</div>
+
+<div class="output-area">
+<div class="loading" id="videoLoadingIndicator">
+<div class="spinner"></div>
+<p>Generating video...</p>
+</div>
+
+<div class="image-container" id="videoOutputContainer">
+<div class="placeholder">
+<div class="placeholder-icon">[VID]</div>
+<p>Generated video will appear here</p>
+<p class="info-text">Requires Wan model to be loaded</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Gallery Tab -->
+<div class="tab-content" id="gallery-tab">
+<div class="section">
+<div class="section-title">Generated Images</div>
+<button class="btn btn-secondary" id="refreshGalleryBtn">Refresh Gallery</button>
+<div class="gallery-grid" id="galleryGrid"></div>
+</div>
+</div>
+
+<!-- Settings Tab -->
+<div class="tab-content" id="settings-tab">
+<div class="section">
+<div class="section-title">Server Configuration</div>
+
+<div class="form-group">
+<label for="threads">Threads</label>
+<input type="number" id="threads" value="4" min="1" max="128">
+</div>
+
+<div class="form-group">
+<label for="serverPort">Server Port</label>
+<input type="number" id="serverPort" value="8080" min="1024" max="65535">
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">Paths</div>
+
+<div class="form-group">
+<label for="loraDir">LoRA Directory</label>
+<input type="text" id="loraDir" value="/app/models/loras" placeholder="/app/models/loras">
+</div>
+
+<div class="form-group">
+<label for="embdDir">Embeddings Directory</label>
+<input type="text" id="embdDir" value="/app/models/embeddings" placeholder="/app/models/embeddings">
+</div>
+</div>
+
+<div class="section">
+<div class="section-title">Server Log</div>
+<button class="btn btn-secondary" id="refreshLogBtn">Refresh Log</button>
+<div class="log-output" id="serverLog">No log data</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal" id="imageModal">
+<span class="modal-close" id="modalClose">X</span>
+<img src="" alt="Full size image" id="modalImage">
+</div>
+
+<script>
+// Model type configurations
+var MODEL_TYPE_CONFIG = {
+z_image: {
+name: 'Z-Image',
+description: 'Z-Image models with LLM integration',
+defaultSampler: 'euler',
+defaultCfg: 2.5,
+defaultGuidance: 3.5,
+defaultSteps: 20,
+showGuidance: true,
+// Model defaults
+defaultDiffusionModel: 'z_image_turbo-Q8_0.gguf',
+defaultLlm: 'Qwen3-4B-UD-Q6_K_XL.gguf',
+defaultVae: 'diffusion_pytorch_model.safetensors',
+defaultScheduler: 'sgm_uniform',
+defaultVaeTiling: true,
+defaultOffloadCpu: true,
+defaultDiffusionFa: true
+},
+flux: {
+name: 'Flux',
+description: 'Flux models for high-quality image generation',
+defaultSampler: 'euler',
+defaultCfg: 1.0,
+defaultGuidance: 3.5,
+defaultSteps: 20,
+showGuidance: true,
+// Model defaults
+defaultDiffusionModel: 'flux1-dev-q4_0.gguf',
+defaultClipL: 'clip_l.safetensors',
+defaultT5Xxl: 't5xxl-Q5_1.gguf',
+defaultVae: 'ae.safetensors',
+defaultScheduler: 'discrete',
+defaultVaeTiling: true,
+defaultOffloadCpu: true,
+defaultDiffusionFa: true,
+defaultClipOnCpu: true
+},
+sd3: {
+name: 'SD3.5',
+description: 'Stable Diffusion 3.5 with improved quality',
+defaultSampler: 'euler',
+defaultCfg: 4.5,
+defaultGuidance: 3.5,
+defaultSteps: 28,
+showGuidance: true,
+// Model defaults
+defaultDiffusionModel: 'stable-diffusion-v3-5-medium-pure-Q4_0.gguf',
+defaultClipL: 'clip_l.safetensors',
+defaultClipG: 'clip_g.safetensors',
+defaultT5Xxl: 't5xxl-Q5_1.gguf',
+defaultVae: 'diffusion_pytorch_model_sd3.safetensors',
+defaultScheduler: 'sgm_uniform',
+defaultVaeTiling: true,
+defaultOffloadCpu: true,
+defaultDiffusionFa: true
+},
+wan: {
+name: 'Wan',
+description: 'Wan models for video and image generation',
+defaultSampler: 'euler',
+defaultCfg: 5.0,
+defaultGuidance: 3.5,
+defaultSteps: 30,
+showGuidance: true
+// No specific defaults provided
+}
+};
+
+// State
+var currentModelType = 'z_image';
+var serverOnline = false;
+var modelLoaded = false;
+var modelFiles = {
+diffusion: [],
+vae: [],
+llm: [],
+clip: [],
+t5: []
+};
+
+// DOM Elements
+var elements = {
+serverStatus: document.getElementById('serverStatus'),
+serverStatusText: document.getElementById('serverStatusText'),
+currentModelText: document.getElementById('currentModelText'),
+currentModelTypeText: document.getElementById('currentModelTypeText'),
+modelType: document.getElementById('modelType'),
+modelTypeInfo: document.getElementById('modelTypeInfo'),
+
+// Z-Image config
+zImageConfig: document.getElementById('zImageConfig'),
+zDiffusionModel: document.getElementById('zDiffusionModel'),
+zLlmModel: document.getElementById('zLlmModel'),
+zVaeModel: document.getElementById('zVaeModel'),
+zDiffusionCount: document.getElementById('zDiffusionCount'),
+zLlmCount: document.getElementById('zLlmCount'),
+zVaeCount: document.getElementById('zVaeCount'),
+
+// Flux/SD3 config
+fluxSd3Config: document.getElementById('fluxSd3Config'),
+diffusionModel: document.getElementById('diffusionModel'),
+diffusionModelInfo: document.getElementById('diffusionModelInfo'),
+clipLModel: document.getElementById('clipLModel'),
+clipGModel: document.getElementById('clipGModel'),
+clipGGroup: document.getElementById('clipGGroup'),
+t5xxlModel: document.getElementById('t5xxlModel'),
+vaeModel: document.getElementById('vaeModel'),
+diffusionCount: document.getElementById('diffusionCount'),
+clipLCount: document.getElementById('clipLCount'),
+t5Count: document.getElementById('t5Count'),
+
+// Wan config
+wanConfig: document.getElementById('wanConfig'),
+wanDiffusionModel: document.getElementById('wanDiffusionModel'),
+wanHighNoiseDiffusionModel: document.getElementById('wanHighNoiseDiffusionModel'),
+wanLlmModel: document.getElementById('wanLlmModel'),
+wanLlmVisionModel: document.getElementById('wanLlmVisionModel'),
+wanClipModel: document.getElementById('wanClipModel'),
+wanT5xxlModel: document.getElementById('wanT5xxlModel'),
+wanVaeModel: document.getElementById('wanVaeModel'),
+moeBoundary: document.getElementById('moeBoundary'),
+moeBoundaryValue: document.getElementById('moeBoundaryValue'),
+wanDiffusionCount: document.getElementById('wanDiffusionCount'),
+wanLlmCount: document.getElementById('wanLlmCount'),
+
+// Buttons
+loadModelBtn: document.getElementById('loadModelBtn'),
+unloadModelBtn: document.getElementById('unloadModelBtn'),
+generateBtn: document.getElementById('generateBtn'),
+img2imgGenerateBtn: document.getElementById('img2imgGenerateBtn'),
+videoGenerateBtn: document.getElementById('videoGenerateBtn'),
+
+// Generation settings
+prompt: document.getElementById('prompt'),
+negativePrompt: document.getElementById('negativePrompt'),
+img2imgPrompt: document.getElementById('img2imgPrompt'),
+img2imgNegativePrompt: document.getElementById('img2imgNegativePrompt'),
+videoPrompt: document.getElementById('videoPrompt'),
+videoNegativePrompt: document.getElementById('videoNegativePrompt'),
+initImage: document.getElementById('initImage'),
+videoInitImage: document.getElementById('videoInitImage'),
+width: document.getElementById('width'),
+height: document.getElementById('height'),
+steps: document.getElementById('steps'),
+stepsValue: document.getElementById('stepsValue'),
+cfgScale: document.getElementById('cfgScale'),
+cfgScaleValue: document.getElementById('cfgScaleValue'),
+guidance: document.getElementById('guidance'),
+guidanceValue: document.getElementById('guidanceValue'),
+guidanceGroup: document.getElementById('guidanceGroup'),
+seed: document.getElementById('seed'),
+sampler: document.getElementById('sampler'),
+scheduler: document.getElementById('scheduler'),
+strength: document.getElementById('strength'),
+strengthValue: document.getElementById('strengthValue'),
+videoFrames: document.getElementById('videoFrames'),
+fps: document.getElementById('fps'),
+
+// Advanced options
+vaeTiling: document.getElementById('vaeTiling'),
+offloadCpu: document.getElementById('offloadCpu'),
+diffusionFa: document.getElementById('diffusionFa'),
+flowShift: document.getElementById('flowShift'),
+
+// Server settings
+threads: document.getElementById('threads'),
+serverPort: document.getElementById('serverPort'),
+loraDir: document.getElementById('loraDir'),
+embdDir: document.getElementById('embdDir'),
+
+// Output containers
+outputContainer: document.getElementById('outputContainer'),
+img2imgOutputContainer: document.getElementById('img2imgOutputContainer'),
+videoOutputContainer: document.getElementById('videoOutputContainer'),
+loadingIndicator: document.getElementById('loadingIndicator'),
+img2imgLoadingIndicator: document.getElementById('img2imgLoadingIndicator'),
+videoLoadingIndicator: document.getElementById('videoLoadingIndicator'),
+messageArea: document.getElementById('messageArea'),
+galleryGrid: document.getElementById('galleryGrid'),
+serverLog: document.getElementById('serverLog'),
+imageModal: document.getElementById('imageModal'),
+modalImage: document.getElementById('modalImage'),
+modalClose: document.getElementById('modalClose')
+};
+
+// Helper function to set dropdown by matching filename (basename)
+function trySetSelectValueByFilename(selectEl, filename) {
+if (!filename || !selectEl) return;
+setTimeout(function() {
+var foundOption = null;
+for (var i = 0; i < selectEl.options.length; i++) {
+var option = selectEl.options[i];
+// Match by checking if option value ends with the filename
+if (option.value && option.value.split('/').pop() === filename) {
+foundOption = option;
+break;
+}
+}
+if (foundOption) {
+selectEl.value = foundOption.value;
+}
+}, 0);
+}
+
+// Model type change handler
+elements.modelType.addEventListener('change', function() {
+currentModelType = this.value;
+updateModelTypeUI();
+});
+
+function updateModelTypeUI() {
+var config = MODEL_TYPE_CONFIG[currentModelType];
+
+// Update info text
+elements.modelTypeInfo.textContent = config.description;
+
+// Show/hide config sections
+elements.zImageConfig.classList.add('hidden');
+elements.fluxSd3Config.classList.add('hidden');
+elements.wanConfig.classList.add('hidden');
+
+if (currentModelType === 'z_image') {
+elements.zImageConfig.classList.remove('hidden');
+} else if (currentModelType === 'flux' || currentModelType === 'sd3') {
+elements.fluxSd3Config.classList.remove('hidden');
+// Show CLIP-G only for SD3
+if (currentModelType === 'sd3') {
+elements.clipGGroup.classList.remove('hidden');
+} else {
+elements.clipGGroup.classList.add('hidden');
+}
+} else if (currentModelType === 'wan') {
+elements.wanConfig.classList.remove('hidden');
+}
+
+// Update guidance visibility
+elements.guidanceGroup.classList.toggle('hidden', !config.showGuidance);
+elements.negativePrompt.closest('.form-group').classList.toggle('hidden', currentModelType === 'flux');
+elements.img2imgNegativePrompt.closest('.form-group').classList.toggle('hidden', currentModelType === 'flux');
+
+// Update generation parameter defaults
+elements.sampler.value = config.defaultSampler;
+elements.cfgScale.value = config.defaultCfg;
+elements.cfgScaleValue.textContent = config.defaultCfg;
+elements.guidance.value = config.defaultGuidance;
+elements.guidanceValue.textContent = config.defaultGuidance;
+elements.steps.value = config.defaultSteps;
+elements.stepsValue.textContent = config.defaultSteps;
+
+elements.diffusionModel.value = config.defaultDiffusionModel;
+if (currentModelType === 'z_image') {
+elements.llm.value = config.defaultLlm;
+}
+elements.vae.value = config.defaultVae;
+
+// Update scheduler
+if (config.defaultScheduler) {
+elements.scheduler.value = config.defaultScheduler;
+}
+
+// Update advanced options checkboxes
+if (config.defaultVaeTiling !== undefined) {
+elements.vaeTiling.checked = config.defaultVaeTiling;
+}
+if (config.defaultOffloadCpu !== undefined) {
+elements.offloadCpu.checked = config.defaultOffloadCpu;
+}
+if (config.defaultDiffusionFa !== undefined) {
+elements.diffusionFa.checked = config.defaultDiffusionFa;
+}
+
+// Set model dropdowns
+if (currentModelType === 'z_image') {
+trySetSelectValueByFilename(elements.zDiffusionModel, config.defaultDiffusionModel);
+trySetSelectValueByFilename(elements.zLlmModel, config.defaultLlm);
+trySetSelectValueByFilename(elements.zVaeModel, config.defaultVae);
+} else if (currentModelType === 'flux' || currentModelType === 'sd3') {
+trySetSelectValueByFilename(elements.diffusionModel, config.defaultDiffusionModel);
+trySetSelectValueByFilename(elements.clipLModel, config.defaultClipL);
+if (currentModelType === 'sd3') {
+trySetSelectValueByFilename(elements.clipGModel, config.defaultClipG);
+}
+trySetSelectValueByFilename(elements.t5xxlModel, config.defaultT5Xxl);
+trySetSelectValueByFilename(elements.vaeModel, config.defaultVae);
+}
+}
+
+// Tab handling
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+btn.addEventListener('click', function() {
+document.querySelectorAll('.tab-btn').forEach(function(b) {
+b.classList.remove('active');
+});
+document.querySelectorAll('.tab-content').forEach(function(c) {
+c.classList.remove('active');
+});
+
+btn.classList.add('active');
+document.getElementById(btn.dataset.tab + '-tab').classList.add('active');
+
+if (btn.dataset.tab === 'gallery') {
+loadGallery();
+}
+});
+});
+
+// Slider value updates
+elements.steps.addEventListener('input', function() {
+elements.stepsValue.textContent = elements.steps.value;
+});
+
+elements.cfgScale.addEventListener('input', function() {
+elements.cfgScaleValue.textContent = elements.cfgScale.value;
+});
+
+elements.guidance.addEventListener('input', function() {
+elements.guidanceValue.textContent = elements.guidance.value;
+});
+
+elements.strength.addEventListener('input', function() {
+elements.strengthValue.textContent = elements.strength.value;
+});
+
+elements.moeBoundary.addEventListener('input', function() {
+elements.moeBoundaryValue.textContent = elements.moeBoundary.value;
+});
+
+// Show message
+function showMessage(message, type) {
+type = type || 'error';
+var className = type === 'error' ? 'error-message' : 'success-message';
+elements.messageArea.innerHTML = '<div class="' + className + '">' + message + '</div>';
+setTimeout(function() {
+elements.messageArea.innerHTML = '';
+}, 5000);
+}
+
+// Check server status
+async function checkServerStatus() {
+try {
+var response = await fetch('/server_status');
+var data = await response.json();
+
+serverOnline = data.server_responsive;
+modelLoaded = data.process_running && data.server_responsive;
+
+if (data.server_responsive) {
+elements.serverStatus.classList.add('active');
+elements.serverStatusText.textContent = 'Online';
+} else if (data.process_running) {
+elements.serverStatus.classList.remove('active');
+elements.serverStatusText.textContent = 'Starting...';
+} else {
+elements.serverStatus.classList.remove('active');
+elements.serverStatusText.textContent = 'Offline';
+}
+
+elements.currentModelText.textContent = data.current_model || 'None';
+elements.currentModelTypeText.textContent = data.model_type || '-';
+} catch (error) {
+elements.serverStatus.classList.remove('active');
+elements.serverStatusText.textContent = 'Error';
+serverOnline = false;
+modelLoaded = false;
+}
+}
+
+// Load model list
+async function loadModelList() {
+try {
+var response = await fetch('/list_models');
+var data = await response.json();
+
+console.log('Model list response:', data);
+
+modelFiles.diffusion = data.diffusion || [];
+modelFiles.vae = data.vae || [];
+modelFiles.llm = data.llm || [];
+modelFiles.clip = data.clip || [];
+modelFiles.t5 = data.t5 || [];
+
+populateModelDropdowns();
+} catch (error) {
+console.error('Failed to load model list:', error);
+showMessage('Failed to load model list');
+}
+}
+
+function populateModelDropdowns() {
+// Helper to populate a select element
+function populateSelect(selectEl, models, defaultText) {
+selectEl.innerHTML = '<option value="">' + defaultText + '</option>';
+models.forEach(function(model) {
+var option = document.createElement('option');
+option.value = model.path;
+option.textContent = model.name;
+if (model.size_human) {
+option.textContent += ' (' + model.size_human + ')';
+}
+selectEl.appendChild(option);
+});
+}
+
+// Z-Image dropdowns
+populateSelect(elements.zDiffusionModel, modelFiles.diffusion, 'Select a model...');
+populateSelect(elements.zLlmModel, modelFiles.llm, 'Select LLM...');
+populateSelect(elements.zVaeModel, modelFiles.vae, 'None (use embedded)');
+
+// Update counts
+elements.zDiffusionCount.textContent = '(' + modelFiles.diffusion.length + ')';
+elements.zLlmCount.textContent = '(' + modelFiles.llm.length + ')';
+elements.zVaeCount.textContent = '(' + modelFiles.vae.length + ')';
+
+// Flux/SD3 dropdowns
+populateSelect(elements.diffusionModel, modelFiles.diffusion, 'Select a model...');
+populateSelect(elements.clipLModel, modelFiles.clip, 'None (use embedded)');
+populateSelect(elements.clipGModel, modelFiles.clip, 'None (use embedded)');
+populateSelect(elements.t5xxlModel, modelFiles.t5, 'None (use embedded)');
+populateSelect(elements.vaeModel, modelFiles.vae, 'None (use embedded)');
+
+elements.diffusionCount.textContent = '(' + modelFiles.diffusion.length + ')';
+elements.clipLCount.textContent = '(' + modelFiles.clip.length + ')';
+elements.t5Count.textContent = '(' + modelFiles.t5.length + ')';
+
+// Wan dropdowns
+populateSelect(elements.wanDiffusionModel, modelFiles.diffusion, 'Select a model...');
+populateSelect(elements.wanHighNoiseDiffusionModel, modelFiles.diffusion, 'None');
+populateSelect(elements.wanLlmModel, modelFiles.llm, 'Select VL LLM...');
+populateSelect(elements.wanLlmVisionModel, modelFiles.llm, 'None');
+populateSelect(elements.wanClipModel, modelFiles.clip, 'None');
+populateSelect(elements.wanT5xxlModel, modelFiles.t5, 'None (use embedded)');
+populateSelect(elements.wanVaeModel, modelFiles.vae, 'None (use embedded)');
+
+elements.wanDiffusionCount.textContent = '(' + modelFiles.diffusion.length + ')';
+elements.wanLlmCount.textContent = '(' + modelFiles.llm.length + ')';
+}
+
+// Build model args based on model type
+function buildModelArgs() {
+var args = {
+model_type: currentModelType,
+threads: parseInt(elements.threads.value),
+port: parseInt(elements.serverPort.value)
+};
+
+if (currentModelType === 'z_image') {
+args.diffusion_model = elements.zDiffusionModel.value;
+args.llm = elements.zLlmModel.value;
+if (elements.zVaeModel.value) {
+args.vae = elements.zVaeModel.value;
+}
+} else if (currentModelType === 'flux' || currentModelType === 'sd3') {
+args.diffusion_model = elements.diffusionModel.value;
+if (elements.clipLModel.value) {
+args.clip_l = elements.clipLModel.value;
+}
+if (currentModelType === 'sd3' && elements.clipGModel.value) {
+args.clip_g = elements.clipGModel.value;
+}
+if (elements.t5xxlModel.value) {
+args.t5xxl = elements.t5xxlModel.value;
+}
+if (elements.vaeModel.value) {
+args.vae = elements.vaeModel.value;
+}
+} else if (currentModelType === 'wan') {
+args.diffusion_model = elements.wanDiffusionModel.value;
+if (elements.wanHighNoiseDiffusionModel.value) {
+args.high_noise_diffusion_model = elements.wanHighNoiseDiffusionModel.value;
+}
+args.llm = elements.wanLlmModel.value;
+if (elements.wanLlmVisionModel.value) {
+args.llm_vision = elements.wanLlmVisionModel.value;
+}
+if (elements.wanClipModel.value) {
+args.clip_vision = elements.wanClipModel.value;
+}
+if (elements.wanT5xxlModel.value) {
+args.t5xxl = elements.wanT5xxlModel.value;
+}
+if (elements.wanVaeModel.value) {
+args.vae = elements.wanVaeModel.value;
+}
+args.moe_boundary = parseFloat(elements.moeBoundary.value);
+}
+
+// Advanced options
+if (elements.vaeTiling.checked) {
+args.vae_tiling = true;
+}
+if (elements.offloadCpu.checked) {
+args.offload_to_cpu = true;
+}
+if (elements.diffusionFa.checked) {
+args.diffusion_fa = true;
+}
+if (elements.flowShift.value) {
+args.flow_shift = parseFloat(elements.flowShift.value);
+}
+if (elements.loraDir.value) {
+args.lora_model_dir = elements.loraDir.value;
+}
+if (elements.embdDir.value) {
+args.embd_dir = elements.embdDir.value;
+}
+
+return args;
+}
+
+// Load model
+elements.loadModelBtn.addEventListener('click', async function() {
+var args = buildModelArgs();
+
+if (!args.diffusion_model) {
+showMessage('Please select a diffusion model');
+return;
+}
+
+if ((currentModelType === 'z_image' || currentModelType === 'wan') && !args.llm) {
+showMessage('Please select an LLM model (required for ' + currentModelType + ')');
+return;
+}
+
+elements.loadModelBtn.disabled = true;
+elements.loadModelBtn.textContent = 'Loading...';
+
+try {
+var response = await fetch('/load_model', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(args)
+});
+
+var data = await response.json();
+
+if (response.ok) {
+showMessage('Model loaded successfully', 'success');
+checkServerStatus();
+} else {
+showMessage(data.error || 'Failed to load model');
+if (data.log) {
+console.log('Server log:', data.log);
+}
+}
+} catch (error) {
+showMessage('Failed to load model: ' + error.message);
+} finally {
+elements.loadModelBtn.disabled = false;
+elements.loadModelBtn.textContent = 'Load Model';
+}
+});
+
+// Unload model
+elements.unloadModelBtn.addEventListener('click', async function() {
+try {
+var response = await fetch('/unload_model', { method: 'POST' });
+var data = await response.json();
+
+if (response.ok) {
+showMessage('Model unloaded', 'success');
+checkServerStatus();
+} else {
+showMessage(data.error || 'Failed to unload model');
+}
+} catch (error) {
+showMessage('Failed to unload model: ' + error.message);
+}
+});
+
+// Build generation parameters
+function buildGenerationParams(prompt, negativePrompt) {
+var params = {
+prompt: prompt,
+negative_prompt: negativePrompt || '',
+width: parseInt(elements.width.value),
+height: parseInt(elements.height.value),
+steps: parseInt(elements.steps.value),
+cfg_scale: parseFloat(elements.cfgScale.value),
+seed: parseInt(elements.seed.value),
+sampler: elements.sampler.value,
+scheduler: elements.scheduler.value
+};
+
+if (MODEL_TYPE_CONFIG[currentModelType].showGuidance) {
+params.guidance = parseFloat(elements.guidance.value);
+}
+
+return params;
+}
+
+// Generate image (txt2img)
+elements.generateBtn.addEventListener('click', async function() {
+var prompt = elements.prompt.value.trim();
+if (!prompt) {
+showMessage('Please enter a prompt');
+return;
+}
+
+elements.generateBtn.disabled = true;
+elements.loadingIndicator.classList.add('active');
+elements.outputContainer.innerHTML = '';
+
+var params = buildGenerationParams(prompt, elements.negativePrompt.value);
+
+try {
+var response;
+
+if (serverOnline && modelLoaded) {
+response = await fetch('/generate', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(params)
+});
+} else {
+params.use_cli = true;
+params.model_args = buildModelArgs();
+response = await fetch('/generate_cli', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(params)
+});
+}
+
+var data = await response.json();
+
+if (response.ok && data.image) {
+var img = document.createElement('img');
+img.src = 'data:image/png;base64,' + data.image;
+img.addEventListener('click', function() {
+openModal(img.src);
+});
+elements.outputContainer.innerHTML = '';
+elements.outputContainer.appendChild(img);
+showMessage('Image generated successfully', 'success');
+} else {
+showMessage(data.error || 'Failed to generate image');
+elements.outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+}
+} catch (error) {
+showMessage('Failed to generate image: ' + error.message);
+elements.outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+} finally {
+elements.generateBtn.disabled = false;
+elements.loadingIndicator.classList.remove('active');
+}
+});
+
+// Generate image (img2img)
+elements.img2imgGenerateBtn.addEventListener('click', async function() {
+var prompt = elements.img2imgPrompt.value.trim();
+var fileInput = elements.initImage;
+
+if (!prompt) {
+showMessage('Please enter a prompt');
+return;
+}
+
+if (!fileInput.files || !fileInput.files[0]) {
+showMessage('Please select an input image');
+return;
+}
+
+elements.img2imgGenerateBtn.disabled = true;
+elements.img2imgLoadingIndicator.classList.add('active');
+elements.img2imgOutputContainer.innerHTML = '';
+
+try {
+var file = fileInput.files[0];
+var base64Image = await fileToBase64(file);
+
+var params = buildGenerationParams(prompt, elements.img2imgNegativePrompt.value);
+params.init_image = base64Image;
+params.strength = parseFloat(elements.strength.value);
+
+var response;
+
+if (serverOnline && modelLoaded) {
+response = await fetch('/img2img', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(params)
+});
+} else {
+params.use_cli = true;
+params.model_args = buildModelArgs();
+response = await fetch('/img2img_cli', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(params)
+});
+}
+
+var data = await response.json();
+
+if (response.ok && data.image) {
+var img = document.createElement('img');
+img.src = 'data:image/png;base64,' + data.image;
+img.addEventListener('click', function() {
+openModal(img.src);
+});
+elements.img2imgOutputContainer.innerHTML = '';
+elements.img2imgOutputContainer.appendChild(img);
+showMessage('Image generated successfully', 'success');
+} else {
+showMessage(data.error || 'Failed to generate image');
+elements.img2imgOutputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+}
+} catch (error) {
+showMessage('Failed to generate image: ' + error.message);
+elements.img2imgOutputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+} finally {
+elements.img2imgGenerateBtn.disabled = false;
+elements.img2imgLoadingIndicator.classList.remove('active');
+}
+});
+
+// Generate video (Wan)
+elements.videoGenerateBtn.addEventListener('click', async function() {
+var prompt = elements.videoPrompt.value.trim();
+
+if (!prompt) {
+showMessage('Please enter a prompt');
+return;
+}
+
+if (currentModelType !== 'wan') {
+showMessage('Video generation requires Wan model type. Please select Wan and load a model.');
+return;
+}
+
+elements.videoGenerateBtn.disabled = true;
+elements.videoLoadingIndicator.classList.add('active');
+elements.videoOutputContainer.innerHTML = '';
+
+try {
+var params = buildGenerationParams(prompt, elements.videoNegativePrompt.value);
+params.video_frames = parseInt(elements.videoFrames.value);
+params.fps = parseInt(elements.fps.value);
+
+var fileInput = elements.videoInitImage;
+if (fileInput.files && fileInput.files[0]) {
+params.init_image = await fileToBase64(fileInput.files[0]);
+}
+
+var response;
+
+if (serverOnline && modelLoaded) {
+response = await fetch('/generate_video', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(params)
+});
+} else {
+params.use_cli = true;
+params.model_args = buildModelArgs();
+response = await fetch('/generate_video_cli', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(params)
+});
+}
+
+var data = await response.json();
+
+if (response.ok && data.video) {
+var video = document.createElement('video');
+video.src = 'data:video/mp4;base64,' + data.video;
+video.controls = true;
+video.autoplay = true;
+video.loop = true;
+video.style.maxWidth = '100%';
+video.style.maxHeight = '600px';
+elements.videoOutputContainer.innerHTML = '';
+elements.videoOutputContainer.appendChild(video);
+showMessage('Video generated successfully', 'success');
+} else {
+showMessage(data.error || 'Failed to generate video');
+elements.videoOutputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+}
+} catch (error) {
+showMessage('Failed to generate video: ' + error.message);
+elements.videoOutputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+} finally {
+elements.videoGenerateBtn.disabled = false;
+elements.videoLoadingIndicator.classList.remove('active');
+}
+});
+
+// File to base64
+function fileToBase64(file) {
+return new Promise(function(resolve, reject) {
+var reader = new FileReader();
+reader.onload = function() {
+resolve(reader.result);
+};
+reader.onerror = reject;
+reader.readAsDataURL(file);
+});
+}
+
+// Load gallery
+async function loadGallery() {
+try {
+var response = await fetch('/list_outputs');
+var data = await response.json();
+
+elements.galleryGrid.innerHTML = '';
+
+if (data.images && data.images.length > 0) {
+data.images.forEach(function(image) {
+var div = document.createElement('div');
+div.className = 'gallery-item';
+
+var img = document.createElement('img');
+img.src = image.url;
+img.alt = image.name;
+img.addEventListener('click', function() {
+openModal(image.url);
+});
+
+div.appendChild(img);
+elements.galleryGrid.appendChild(div);
+});
+} else {
+elements.galleryGrid.innerHTML = '<p>No images generated yet</p>';
+}
+} catch (error) {
+console.error('Failed to load gallery:', error);
+elements.galleryGrid.innerHTML = '<p>Failed to load gallery</p>';
+}
+}
+
+// Refresh gallery button
+document.getElementById('refreshGalleryBtn').addEventListener('click', loadGallery);
+
+// Load server log
+async function loadServerLog() {
+try {
+var response = await fetch('/server_log?lines=100');
+var data = await response.json();
+elements.serverLog.textContent = data.log || 'No log data';
+} catch (error) {
+elements.serverLog.textContent = 'Failed to load log';
+}
+}
+
+// Refresh log button
+document.getElementById('refreshLogBtn').addEventListener('click', loadServerLog);
+
+// Modal functions
+function openModal(src) {
+elements.modalImage.src = src;
+elements.imageModal.classList.add('active');
+}
+
+elements.modalClose.addEventListener('click', function() {
+elements.imageModal.classList.remove('active');
+});
+
+elements.imageModal.addEventListener('click', function(e) {
+if (e.target === elements.imageModal) {
+elements.imageModal.classList.remove('active');
+}
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+if (e.key === 'Escape') {
+elements.imageModal.classList.remove('active');
+}
+
+if (e.ctrlKey && e.key === 'Enter') {
+var activeTab = document.querySelector('.tab-content.active');
+if (activeTab.id === 'txt2img-tab') {
+elements.generateBtn.click();
+} else if (activeTab.id === 'img2img-tab') {
+elements.img2imgGenerateBtn.click();
+} else if (activeTab.id === 'video-tab') {
+elements.videoGenerateBtn.click();
+}
+}
+});
+
+// Initialize
+loadModelList();
+updateModelTypeUI();
+checkServerStatus();
+setInterval(checkServerStatus, 5000);
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+fetch("/api/config")
+.then(r => r.json())
+.then(cfg => {
+if (cfg.defaults) {
+["diffusion_model","llm_model","vae_model"].forEach(t => {
+const el = document.getElementById(t);
+if (el && cfg.defaults[t]) el.value = cfg.defaults[t];
+});
+}
+})
+.catch(err => console.error("Config load error:", err));
+});
+</script>
+<script>
+fetch('../config.json')
+.then(response => response.json())
+.then(data => {
+const defaults = data.find(item => item['model-type'] === 'all').defaults;
+console.log('Defaults:', defaults);
+for (const key in defaults) {
+const element = document.getElementById(key);
+if (element) {
+element.value = defaults[key];
+}
+}
+})
+.catch(error => console.error('Error loading config:', error));
+</script>
+</body>
+</html>

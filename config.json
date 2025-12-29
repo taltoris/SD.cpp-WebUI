@@ -1,0 +1,157 @@
+{
+  "z_image": {
+    "name": "Z-Image",
+    "description": "Z-Image models with LLM integration",
+    "models": {
+      "diffusion": "z_image_turbo-Q8_0.gguf",
+      "llm": "Qwen3-4B-UD-Q6_K_XL.gguf",
+      "vae": "ae.safetensors"
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 2.5,
+      "guidance": 3.5,
+      "steps": 20,
+      "scheduler": "sgm_uniform",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "showGuidance": true
+    },
+    "params": {
+      "enable_CFG": true,
+      "enable_negative_prompt": true
+    }
+  },
+  "flux": {
+    "name": "Flux",
+    "description": "Flux models for high-quality image generation",
+    "models": {
+      "diffusion": "flux1-dev-q4_0.gguf",
+      "clip_l": "clip_l.safetensors",
+      "t5xxl": "t5xxl-Q5_1.gguf",
+      "vae": "ae.safetensors"
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 1.0,
+      "guidance": 3.5,
+      "steps": 20,
+      "scheduler": "discrete",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "showGuidance": true
+    },
+    "params": {
+      "enable_CFG": false,
+      "enable_negative_prompt": false
+    }
+  },
+  "sd3": {
+    "name": "SD3.5",
+    "description": "Stable Diffusion 3.5 with improved quality",
+    "models": {
+      "diffusion": "stable-diffusion-v3-5-medium-pure-Q4_0.gguf",
+      "clip_l": "clip_l.safetensors",
+      "clip_g": "clip_g.safetensors",
+      "t5xxl": "t5xxl-Q5_1.gguf",
+      "vae_model": "diffusion_pytorch_model_sd3.safetensors"
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 4.5,
+      "guidance": 3.5,
+      "steps": 28,
+      "scheduler": "sgm_uniform",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "showGuidance": true
+    },
+    "params": {
+      "enable_CFG": true,
+      "enable_negative_prompt": true
+    }
+  },
+  "wan": {
+    "name": "Wan",
+    "description": "Wan models for video and image generation",
+    "models": {
+      "diffusion": "",
+      "llm": ""
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 5.0,
+      "guidance": 3.5,
+      "steps": 30,
+      "showGuidance": true,
+      "videoFrames": 16,
+      "fps": 24,
+      "moe_boundary": 0.875
+    },
+    "params": {
+      "enable_CFG": true,
+      "enable_negative_prompt": true
+    }
+  },
+  "all": {
+    "defaults": {
+      "width": 768,
+      "height": 512,
+      "steps": 10,
+      "CFG_scale": 1.0,
+      "guidance": 3.5,
+      "seed": -1,
+      "sampler": "euler",
+      "scheduler": "sgm_uniform",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "flow_shift": "auto",
+      "strength": 0.75
+    },
+    "samplers": [
+      "euler",
+      "euler_cfg_pp",
+      "euler_ancestral",
+      "euler_ancestral_cfg_pp",
+      "heun",
+      "heunpp2",
+      "dpm_2",
+      "dpm_2_ancestral",
+      "lms",
+      "dpm_fast",
+      "dpm_adaptive",
+      "dpmpp_2s_ancestral",
+      "dpmpp_2s_ancestral_cfg_pp",
+      "dpmpp_sde",
+      "dpmpp_sde_gpu",
+      "dpmpp_2m",
+      "dpmpp_2m_cfg_pp",
+      "dpmpp_2m_sde",
+      "dpmpp_2m_sde_gpu",
+      "dpmpp_3m_sde",
+      "dpmpp_3m_sde_gpu",
+      "ddpm",
+      "lcm",
+      "ipndm",
+      "ipndm_v",
+      "deis",
+      "ddim",
+      "uni_pc",
+      "uni_pc_bh2"
+    ],
+    "schedulers": [
+      "normal",
+      "karras",
+      "exponential",
+      "sgm_uniform",
+      "simple",
+      "ddim_uniform",
+      "beta",
+      "discrete"
+    ]
+  }
+}
