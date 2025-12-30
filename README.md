@@ -124,7 +124,3 @@ Open an issue for bug reports, feature ideas, or general discussion.
 ## 📜 License
 
 **MIT License** — feel free to fork, modify, and build upon.
-
----
-
-Let me know if you’d like a version with actual screenshots embedded (I can generate one for you!) or a README optimized for GitHub, GitLab, or a project website.
