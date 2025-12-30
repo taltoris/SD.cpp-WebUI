@@ -4,7 +4,7 @@
 
 A lightweight, browser-based web interface for **[stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp)** — powered by Flask and designed for **fast, local, low-resource image generation**.
 
-![Screenshot](screenshots/Screenshot.png)
+![Screenshot](screenshot.png)
 ---
 
 ## ✅ Features
