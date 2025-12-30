@@ -30,7 +30,7 @@ A lightweight, browser-based web interface for **[stable-diffusion.cpp](https://
 - **Docker + Docker Compose** *(recommended environment)*  
 - **NVIDIA GPU with CUDA support** *(enabled by default in Dockerfile)*  
 - `stable-diffusion.cpp` built and accessible in the same parent directory
-
+- 
 ---
 
 ## 🚀 Installation
@@ -38,7 +38,7 @@ A lightweight, browser-based web interface for **[stable-diffusion.cpp](https://
 ### 1. Clone both repositories
 ```bash
 git clone https://github.com/taltoris/SD.cpp-WebUI
-git clone https://github.com/leejet/stable-diffusion.cpp
+git clone --recursive https://github.com/leejet/stable-diffusion.cpp
 ```
 
 ### 2. Build `stable-diffusion.cpp`
