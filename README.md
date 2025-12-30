@@ -1,60 +1,64 @@
+---
+
 # SD.cpp-WebUI
 
 A lightweight, browser-based web interface for **[stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp)** â€” powered by Flask and designed for **fast, local, low-resource image generation**.
 
-![SD.cpp-WebUI Screenshot](https://via.placeholder.com/800x500?text=SD.cpp-WebUI+Interface)  
-*(Screenshot placeholder â€” replace with actual image)*
-
+![Screenshot](Screenshot.png)
 ---
 
-## í ½íº€ Features
+## âœ… Features
 
-**âœ… Tested & Working**
+### **Tested & Working**
 - Text-to-Image (Txt2Img) generation  
 - Built-in gallery for generated outputs  
 - Full support for **Z-Image**, **SD3.5**, and **Flux** models  
 - Executes inference through `sd-cli` from **stable-diffusion.cpp**
 
-**âš ï¸ Experimental / Untested**
+### **âš ï¸ Experimental / Untested**
 - Image-to-Image (Img2Img) pipeline  
 - Video generation (WAN models) â€” may require additional dependencies  
 
-**í ½í´§ Advanced Options**
+### **âš™ï¸ Advanced Options**
 - VAE tiling, Flash Attention, CPU offload  
 - LoRA and embeddings support (when supported by model backend)
 
 ---
 
-## í ½í» ï¸ Requirements
+## ğŸ“¦ Requirements
 
-- Docker + Docker Compose *(recommended environment)*
-- NVIDIA GPU with CUDA support *(enabled by default in Dockerfile)*
+- **Docker + Docker Compose** *(recommended environment)*  
+- **NVIDIA GPU with CUDA support** *(enabled by default in Dockerfile)*  
 - `stable-diffusion.cpp` built and accessible in the same parent directory
-
+- 
 ---
 
-## í ½í³¦ Installation
+## ğŸš€ Installation
 
 ### 1. Clone both repositories
-```
+```bash
 git clone https://github.com/taltoris/SD.cpp-WebUI
-git clone https://github.com/leejet/stable-diffusion.cpp
+git clone --recursive https://github.com/leejet/stable-diffusion.cpp
 ```
 
 ### 2. Build `stable-diffusion.cpp`
 Follow the official guide:  
-í ½í±‰ [Build Instructions](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/build.md)
+ğŸ”— [Build Instructions](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/build.md)
 
 Then prepare model directories:
-```
+```bash
 cd stable-diffusion.cpp
 mkdir -p models/{clip,diffusion,llm,t5,text_encoders,vae}
 ```
 
-Place your models (e.g. `.gguf`, `.safetensors`) in the appropriate subfolders, such as `models/diffusion/`.
+For instructions about which models to acquire, follow the stable-diffusion.cpp [Docs](https://github.com/leejet/stable-diffusion.cpp/tree/master/docs).
+
+It is also recommended that you review the example config.json to set up your models.
+
+Place your models (e.g., `.gguf`, `.safetensors`) in the appropriate subfolders â€” e.g., `models/diffusion/`.
 
 ### 3. Run the WebUI
-```
+```bash
 cd ../SD.cpp-WebUI
 docker compose up
 ```
@@ -63,7 +67,7 @@ Then open **[http://localhost:5000](http://localhost:5000)** in your browser.
 
 ---
 
-## í ½í³ Directory Structure
+## ğŸ“ Directory Structure
 
 ```
 SD.cpp-WebUI/
@@ -88,38 +92,38 @@ stable-diffusion.cpp/
 
 ---
 
-## í ½í³š Models
+## ğŸ–¼ï¸ Models
 
 Download compatible models from **[Hugging Face](https://huggingface.co)** or **[CivitAI](https://civitai.com)** in **GGUF** or **Safetensors** format.
 
-**Tested models:**
-| Model | File Example | Notes |
-|-------|---------------|-------|
-| Z-Image | `z_image_turbo-Q8_0.gguf` | Very fast generation |
-| SD3.5 | `stable-diffusion-v3-5-medium-pure-Q4_0.gguf` | Balanced quality-speed |
-| Flux | `flux1-dev-q4_0.gguf` | Excellent aesthetics |
+### âœ… Tested Models
 
-Place models in the corresponding folder under `stable-diffusion.cpp/models/`.
+| Model       | File Example                          | Notes                     |
+|-------------|----------------------------------------|---------------------------|
+| Z-Image     | `z_image_turbo-Q8_0.gguf`              | Very fast generation      |
+| SD3.5       | `stable-diffusion-v3-5-medium-pure-Q4_0.gguf` | Balanced quality-speed |
+| Flux        | `flux1-dev-q4_0.gguf`                  | Excellent aesthetics      |
 
----
-
-## í ½í²¡ Built With
-
-- í ¾í·  [**stable-diffusion.cpp**](https://github.com/leejet/stable-diffusion.cpp) â€” C++ inference engine  
-- í ¾í·© Flask â€” Lightweight Python web server  
-- í ½í²» JavaScript + CSS â€” Responsive and minimal UI  
-- í ½í°‹ Docker â€” Easy, isolated deployment  
+> Place models in the corresponding folder under `stable-diffusion.cpp/models/`.
 
 ---
 
-## í ¾í´ Contributing
+## ğŸ’¡ Built With
+
+- ğŸ§  [**stable-diffusion.cpp**](https://github.com/leejet/stable-diffusion.cpp) â€” C++ inference engine  
+- ğŸ **Flask** â€” Lightweight Python web server  
+- ğŸ¨ **JavaScript + CSS** â€” Responsive and minimal UI  
+- ğŸ³ **Docker** â€” Easy, isolated deployment  
+
+---
+
+## ğŸ¤ Contributing
 
 Pull requests are welcome!  
 Open an issue for bug reports, feature ideas, or general discussion.
 
 ---
 
-## í ½í³œ License
+## ğŸ“œ License
 
 **MIT License** â€” feel free to fork, modify, and build upon.
-
