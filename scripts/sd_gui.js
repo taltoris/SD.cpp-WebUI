@@ -658,19 +658,33 @@ function setupEventListeners() {
         elements.refreshLogBtn.addEventListener('click', loadServerLog);
     }
     
-    // Modal
+    // Modal	
     if (elements.modalClose) {
         elements.modalClose.addEventListener('click', function() {
             if (elements.imageModal) {
                 elements.imageModal.classList.remove('active');
+		    
+		// Pause and reset video if it exists
+		var videoModal = document.getElementById('modalVideo');
+		if (videoModal) {
+		    videoModal.pause();
+		    videoModal.currentTime = 0;
+		}
             }
-        });
+	});
     }
     
     if (elements.imageModal) {
         elements.imageModal.addEventListener('click', function(e) {
             if (e.target === elements.imageModal) {
                 elements.imageModal.classList.remove('active');
+            
+                // Pause and reset video if it exists
+                var videoModal = document.getElementById('modalVideo');
+                if (videoModal) {
+                    videoModal.pause();
+                    videoModal.currentTime = 0;
+                }
             }
         });
     }
@@ -1048,43 +1062,118 @@ function fileToBase64(file) {
 // Load gallery
 async function loadGallery() {
     console.log('Loading gallery...');
-    
+
     if (!elements.galleryGrid) {
         console.error('Gallery grid not found');
         return;
     }
-    
+
     try {
         var response = await fetch('/list_outputs');
         var data = await response.json();
-        
+
         console.log('Gallery data:', data);
-        
+
         elements.galleryGrid.innerHTML = '';
-        
-        if (data.images && data.images.length > 0) {
-            data.images.forEach(function(image) {
+
+        if (data.files && data.files.length > 0) {
+            data.files.forEach(function(file) {
                 var div = document.createElement('div');
                 div.className = 'gallery-item';
-                
-                var img = document.createElement('img');
-                img.src = image.url;
-                img.alt = image.name;
-                img.addEventListener('click', function() {
-                    openModal(image.url);
-                });
-                
-                div.appendChild(img);
+
+                if (file.type === 'video') {
+                    // Create video element for videos
+                    var video = document.createElement('video');
+                    video.src = file.url;
+                    video.style.width = '100%';
+                    video.style.height = '100%';
+                    video.style.objectFit = 'cover';
+                    video.muted = true;
+                    video.loop = true;
+                    
+                    // Play preview on hover
+                    div.addEventListener('mouseenter', function() {
+                        video.play();
+                    });
+                    div.addEventListener('mouseleave', function() {
+                        video.pause();
+                        video.currentTime = 0;
+                    });
+                    
+                    // Click to open in modal
+                    video.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        openVideoModal(file.url, file.name);
+                    });
+                    
+                    div.appendChild(video);
+                    
+                    // Add video indicator badge
+                    var badge = document.createElement('div');
+                    badge.style.position = 'absolute';
+                    badge.style.top = '5px';
+                    badge.style.right = '5px';
+                    badge.style.background = 'rgba(0, 0, 0, 0.7)';
+                    badge.style.color = 'white';
+                    badge.style.padding = '2px 6px';
+                    badge.style.borderRadius = '4px';
+                    badge.style.fontSize = '0.7rem';
+                    badge.textContent = '▶ VIDEO';
+                    div.style.position = 'relative';
+                    div.appendChild(badge);
+                } else {
+                    // Create image element for images
+                    var img = document.createElement('img');
+                    img.src = file.url;
+                    img.alt = file.name;
+                    img.addEventListener('click', function() {
+                        openModal(file.url);
+                    });
+                    div.appendChild(img);
+                }
+
                 elements.galleryGrid.appendChild(div);
             });
         } else {
-            elements.galleryGrid.innerHTML = '<p>No images generated yet</p>';
+            elements.galleryGrid.innerHTML = '<p>No images or videos generated yet</p>';
         }
     } catch (error) {
         console.error('Failed to load gallery:', error);
         elements.galleryGrid.innerHTML = '<p>Failed to load gallery</p>';
     }
 }
+
+// Add new function for video modal
+function openVideoModal(src, name) {
+    if (!elements.imageModal) return;
+    
+    // Clear existing content
+    var modalContent = elements.imageModal;
+    
+    // Hide the image if it exists
+    if (elements.modalImage) {
+        elements.modalImage.style.display = 'none';
+    }
+    
+    // Create or get video element
+    var videoModal = document.getElementById('modalVideo');
+    if (!videoModal) {
+        videoModal = document.createElement('video');
+        videoModal.id = 'modalVideo';
+        videoModal.controls = true;
+        videoModal.autoplay = true;
+        videoModal.loop = true;
+        videoModal.style.maxWidth = '90%';
+        videoModal.style.maxHeight = '90%';
+        videoModal.style.objectFit = 'contain';
+        modalContent.appendChild(videoModal);
+    }
+    
+    videoModal.style.display = 'block';
+    videoModal.src = src;
+    modalContent.classList.add('active');
+}
+
 
 // Load server log
 async function loadServerLog() {
@@ -1120,13 +1209,22 @@ function showMessage(message, type) {
 
 // Open modal
 function openModal(src) {
+    // Hide video if it exists
+    var videoModal = document.getElementById('modalVideo');
+    if (videoModal) {
+        videoModal.style.display = 'none';
+        videoModal.pause();
+    }
+    
     if (elements.modalImage) {
+        elements.modalImage.style.display = 'block';
         elements.modalImage.src = src;
     }
     if (elements.imageModal) {
         elements.imageModal.classList.add('active');
     }
 }
+
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initializeApp);

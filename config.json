@@ -78,8 +78,9 @@
     "name": "Wan",
     "description": "Wan models for video and image generation",
     "models": {
-      "diffusion": "",
-      "llm": ""
+      "diffusion": "wan2.1-t2v-14b-Q3_K_M.gguf",
+      "vae": "wan_2.1_vae.safetensors",
+      "t5xxl": "umt5-xxl-encoder-Q5_K_M.gguf"
     },
     "defaults": {
       "sampler": "euler",
@@ -87,9 +88,14 @@
       "guidance": 3.5,
       "steps": 30,
       "showGuidance": true,
-      "videoFrames": 16,
+      "videoFrames": 33,
       "fps": 24,
-      "moe_boundary": 0.875
+      "moe_boundary": 0.875,
+      "width": 832,
+      "height": 480,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "flow_shift": 3.0
     },
     "params": {
       "enable_CFG": true,

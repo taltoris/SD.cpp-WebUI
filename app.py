@@ -348,24 +348,33 @@ def generate_cli():
         logger.error(f"CLI generation failed: {e}")
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/list_outputs')
 def list_outputs():
-    """List generated images"""
-    images = []
+    """List generated images and videos"""
+    files = []
     if os.path.exists(OUTPUT_DIR):
         for filename in os.listdir(OUTPUT_DIR):
-            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                filepath = os.path.join(OUTPUT_DIR, filename)
-                images.append({
+            filepath = os.path.join(OUTPUT_DIR, filename)
+            ext = filename.lower().split('.')[-1]
+            
+            # Check for both images and videos
+            if ext in ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'avi', 'mov', 'webm']:
+                file_type = 'video' if ext in ['mp4', 'avi', 'mov', 'webm'] else 'image'
+                files.append({
                     'name': filename,
                     'url': f'/output/{filename}',
                     'path': filepath,
-                    'mtime': os.path.getmtime(filepath)
+                    'mtime': os.path.getmtime(filepath),
+                    'type': file_type,
+                    'size': os.path.getsize(filepath),
+                    'size_human': get_file_size_human(os.path.getsize(filepath))
                 })
-    
+
     # Sort by modification time, newest first
-    images.sort(key=lambda x: x['mtime'], reverse=True)
-    return jsonify({'images': images})
+    files.sort(key=lambda x: x['mtime'], reverse=True)
+    return jsonify({'files': files})
+
 
 @app.route('/output/<path:filename>')
 def serve_output(filename):
@@ -382,6 +391,129 @@ def server_log():
     
     # This is a simplified version - in practice you'd want to capture logs properly
     return jsonify({'log': 'Server is running. Check container logs for details.'})
+@app.route('/generate_video', methods=['POST'])
+def generate_video():
+    """Generate a video using the loaded model (server mode)"""
+    global server_port
+
+    data = request.json
+    prompt = data.get('prompt', '')
+
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+
+    try:
+        import urllib.request
+        import urllib.parse
+
+        payload = json.dumps({
+            'prompt': prompt,
+            'negative_prompt': data.get('negative_prompt', ''),
+            'width': data.get('width', 832),
+            'height': data.get('height', 480),
+            'steps': data.get('steps', 30),
+            'cfg_scale': data.get('cfg_scale', 5.0),
+            'seed': data.get('seed', -1),
+            'sampler': data.get('sampler', 'euler'),
+            'scheduler': data.get('scheduler', 'sgm_uniform'),
+            'guidance': data.get('guidance', 3.5),
+            'video_frames': data.get('video_frames', 33),
+            'fps': data.get('fps', 24)
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            f'http://127.0.0.1:{server_port}/vid_gen',
+            data=payload,
+            headers={'Content-Type': 'application/json'}
+        )
+
+        response = urllib.request.urlopen(req, timeout=600)
+        result = json.loads(response.read().decode('utf-8'))
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Video generation failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/generate_video_cli', methods=['POST'])
+def generate_video_cli():
+    """Generate a video using CLI mode (no server)"""
+    data = request.json
+    prompt = data.get('prompt', '')
+    model_args = data.get('model_args', {})
+
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+
+    diffusion_model = model_args.get('diffusion_model')
+    if not diffusion_model:
+        return jsonify({'error': 'No diffusion model specified'}), 400
+
+    # Generate output filename
+    timestamp = int(time.time())
+    output_path = os.path.join(OUTPUT_DIR, f'output_video_{timestamp}')
+
+    # Build command - use vid_gen mode
+    cmd = [SD_BINARY, '--mode', 'vid_gen']
+    cmd.extend(['--diffusion-model', diffusion_model])
+    cmd.extend(['--prompt', prompt])
+    cmd.extend(['--output', output_path])
+    cmd.extend(['--width', str(data.get('width', 832))])
+    cmd.extend(['--height', str(data.get('height', 480))])
+    cmd.extend(['--steps', str(data.get('steps', 30))])
+    cmd.extend(['--cfg-scale', str(data.get('cfg_scale', 5.0))])
+    cmd.extend(['--seed', str(data.get('seed', -1))])
+    cmd.extend(['--sampling-method', data.get('sampler', 'euler')])
+    cmd.extend(['--scheduler', data.get('scheduler', 'sgm_uniform')])
+    cmd.extend(['--video-frames', str(data.get('video_frames', 33))])
+
+    if data.get('negative_prompt'):
+        cmd.extend(['--negative-prompt', data['negative_prompt']])
+    
+    # Add guidance if provided
+    if data.get('guidance'):
+        cmd.extend(['--guidance', str(data['guidance'])])
+
+    # Add flow-shift if provided
+    flow_shift = data.get('flow_shift') or (model_args.get('flow_shift') if model_args else None)
+    if flow_shift:
+        cmd.extend(['--flow-shift', str(flow_shift)])
+
+    # Add optional models
+    if model_args.get('vae'):
+        cmd.extend(['--vae', model_args['vae']])
+    if model_args.get('t5xxl'):
+        cmd.extend(['--t5xxl', model_args['t5xxl']])
+
+    # Add options
+    if model_args.get('vae_tiling'):
+        cmd.append('--vae-tiling')
+    if model_args.get('diffusion_fa'):
+        cmd.append('--diffusion-fa')
+
+    logger.info(f"Running CLI video generation: {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)  # 30 min timeout
+
+        if result.returncode != 0:
+            return jsonify({'error': f'Video generation failed: {result.stderr}'}), 500
+
+        # Look for the output video file (sd-cli typically adds .mp4 extension)
+        video_files = [f for f in os.listdir(OUTPUT_DIR) if f.startswith(f'output_video_{timestamp}')]
+        
+        if video_files:
+            video_path = os.path.join(OUTPUT_DIR, video_files[0])
+            with open(video_path, 'rb') as f:
+                video_data = base64.b64encode(f.read()).decode('utf-8')
+            return jsonify({'video': video_data, 'path': video_path})
+        else:
+            return jsonify({'error': 'Output video not found'}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Video generation timed out'}), 500
+    except Exception as e:
+        logger.error(f"CLI video generation failed: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     
