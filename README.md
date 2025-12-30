@@ -1,11 +1,10 @@
-Here's your content beautifully formatted as a clean, polished Markdown document — with improved structure, consistent emoji usage, and visual hierarchy for readability:
-
 ---
 
 # SD.cpp-WebUI
 
 A lightweight, browser-based web interface for **[stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp)** — powered by Flask and designed for **fast, local, low-resource image generation**.
 
+![Screenshot](screenshots/Screenshot.png)
 ---
 
 ## ✅ Features
