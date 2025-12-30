@@ -51,6 +51,8 @@ cd stable-diffusion.cpp
 mkdir -p models/{clip,diffusion,llm,t5,text_encoders,vae}
 ```
 
+For instructions about which models to acquire, follow the stable-diffusion.cpp [Docs](https://github.com/leejet/stable-diffusion.cpp/tree/master/docs).
+
 Place your models (e.g., `.gguf`, `.safetensors`) in the appropriate subfolders — e.g., `models/diffusion/`.
 
 ### 3. Run the WebUI
