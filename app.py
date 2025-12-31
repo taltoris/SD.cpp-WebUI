@@ -6,6 +6,9 @@ import time
 import base64
 import logging
 import shlex
+import base64
+import requests
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 
@@ -30,13 +33,14 @@ T5_MODELS_DIR = os.path.join(MODELS_DIR, 't5')
 LORA_MODELS_DIR = os.path.join(MODELS_DIR, 'loras')
 EMBEDDINGS_DIR = os.path.join(MODELS_DIR, 'embeddings')
 
-# SD.cpp binary path
-SD_BINARY = '/usr/local/bin/sd-cli'
+# SD.cpp binary paths
+SD_SERVER_BINARY = '/usr/local/bin/sd-server'
+SD_CLI_BINARY = '/usr/local/bin/sd-cli'
 
 # Flask app
-app = Flask(__name__, 
-            static_folder=STATIC_DIR,
-            template_folder=TEMPLATES_DIR)
+app = Flask(__name__,
+static_folder=STATIC_DIR,
+template_folder=TEMPLATES_DIR)
 
 # Global state
 sd_process = None
@@ -115,18 +119,18 @@ def list_models():
 def server_status():
     """Check if the SD server is running and responsive"""
     global sd_process, current_model, current_model_type
-    
+
     process_running = sd_process is not None and sd_process.poll() is None
     server_responsive = False
-    
+
     if process_running:
         try:
             import urllib.request
-            req = urllib.request.urlopen(f'http://127.0.0.1:{server_port}/health', timeout=2)
+            req = urllib.request.urlopen(f'http://127.0.0.1:{server_port}', timeout=2)
             server_responsive = req.status == 200
         except:
             pass
-    
+
     return jsonify({
         'process_running': process_running,
         'server_responsive': server_responsive,
@@ -139,22 +143,22 @@ def server_status():
 def load_model():
     """Load a model and start the SD server"""
     global sd_process, current_model, current_model_type, server_port
-    
+
     # Unload any existing model first
     if sd_process is not None:
         unload_model_internal()
-    
+
     data = request.json
     model_type = data.get('model_type', 'flux')
     diffusion_model = data.get('diffusion_model')
-    
+
     if not diffusion_model:
         return jsonify({'error': 'No diffusion model specified'}), 400
-    
-    # Build command
-    cmd = [SD_BINARY, '--mode', 'server', '--port', str(server_port)]
+
+    # Build command using sd-server
+    cmd = [SD_SERVER_BINARY,'--listen-ip', '0.0.0.0', '--listen-port', str(server_port)]
     cmd.extend(['--diffusion-model', diffusion_model])
-    
+
     # Add optional models
     if data.get('vae'):
         cmd.extend(['--vae', data['vae']])
@@ -166,23 +170,37 @@ def load_model():
         cmd.extend(['--t5xxl', data['t5xxl']])
     if data.get('llm'):
         cmd.extend(['--llm', data['llm']])
-    
+
     # Add options
     if data.get('vae_tiling'):
         cmd.append('--vae-tiling')
     if data.get('offload_to_cpu'):
-        cmd.append('--diffusion-fa')
+        cmd.append('--offload-to-cpu')
     if data.get('diffusion_fa'):
         cmd.append('--diffusion-fa')
+    if data.get('flow_shift'):
+        cmd.extend(['--flow-shift', str(data['flow_shift'])])
     if data.get('lora_model_dir'):
         cmd.extend(['--lora-model-dir', data['lora_model_dir']])
     if data.get('embd_dir'):
         cmd.extend(['--embd-dir', data['embd_dir']])
     if data.get('threads'):
         cmd.extend(['--threads', str(data['threads'])])
+ 
+    generation_params = {
+        '--cfg-scale': data.get('cfg_scale', '1.0'),
+        '--guidance': data.get('guidance', '3.5'),
+        '--sampling-method': data.get('sampling_method', 'euler'),
+        '--scheduler': data.get('scheduler', 'discrete'),
+        '--rng': data.get('rng', 'cuda')
+    }
     
+    for flag, value in generation_params.items():
+        if value is not None:
+            cmd.extend([flag, str(value)])
+
     logger.info(f"Starting SD server with command: {' '.join(cmd)}")
-    
+
     try:
         sd_process = subprocess.Popen(
             cmd,
@@ -190,17 +208,17 @@ def load_model():
             stderr=subprocess.STDOUT,
             text=True
         )
-        
+
         current_model = os.path.basename(diffusion_model)
         current_model_type = model_type
-        
+
         # Wait a bit for server to start
-        time.sleep(2)
-        
+        time.sleep(3)
+
         if sd_process.poll() is not None:
             output = sd_process.stdout.read()
             return jsonify({'error': f'Server failed to start: {output}'}), 500
-        
+
         return jsonify({
             'success': True,
             'message': 'Model loaded successfully',
@@ -214,7 +232,7 @@ def load_model():
 def unload_model_internal():
     """Internal function to unload model"""
     global sd_process, current_model, current_model_type
-    
+
     if sd_process is not None:
         sd_process.terminate()
         try:
@@ -222,7 +240,7 @@ def unload_model_internal():
         except subprocess.TimeoutExpired:
             sd_process.kill()
         sd_process = None
-    
+
     current_model = None
     current_model_type = None
 
@@ -234,44 +252,180 @@ def unload_model():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    """Generate an image using the loaded model (server mode)"""
-    global server_port
-    
     data = request.json
-    prompt = data.get('prompt', '')
-    
-    if not prompt:
-        return jsonify({'error': 'No prompt provided'}), 400
-    
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+    # Validate required parameters
+    required_params = ['prompt', 'height', 'width', 'steps', 'cfg_scale', 'seed', 'sampler', 'scheduler', 'guidance']
+    for param in required_params:
+        if param not in data:
+            return jsonify({'status': 'error', 'message': f'Missing required parameter: {param}'}), 400
+
     try:
-        import urllib.request
-        import urllib.parse
-        
-        payload = json.dumps({
-            'prompt': prompt,
-            'negative_prompt': data.get('negative_prompt', ''),
-            'width': data.get('width', 512),
-            'height': data.get('height', 512),
-            'steps': data.get('steps', 20),
-            'cfg_scale': data.get('cfg_scale', 1.0),
-            'seed': data.get('seed', -1),
-            'sampler': data.get('sampler', 'euler'),
-            'scheduler': data.get('scheduler', 'sgm_uniform')
-        }).encode('utf-8')
-        
-        req = urllib.request.Request(
-            f'http://127.0.0.1:{server_port}/txt2img',
-            data=payload,
-            headers={'Content-Type': 'application/json'}
-        )
-        
-        response = urllib.request.urlopen(req, timeout=300)
-        result = json.loads(response.read().decode('utf-8'))
-        
-        return jsonify(result)
+        prompt = str(data['prompt'])
+        negative_prompt = str(data.get('negative_prompt', ''))
+        height = int(data['height'])
+        width = int(data['width'])
+        steps = int(data['steps'])
+        cfg_scale = float(data['cfg_scale'])
+        seed = int(data['seed'])
+        sampler = str(data['sampler'])
+        scheduler = str(data['scheduler'])
+        guidance = float(data['guidance'])
+    except (ValueError, TypeError) as e:
+        return jsonify({'status': 'error', 'message': f'Invalid parameter type: {str(e)}'}), 400
+
+    # Generate timestamp for output filename
+    timestamp = int(datetime.now().timestamp())
+    output_filename = f"output_{timestamp}.png"
+
+    # Ensure output folder exists and get path
+    try:
+        output_folder = app.config.get('OUTPUT_FOLDER', '/app/output')
+        os.makedirs(output_folder, exist_ok=True)
+        output_path = os.path.join(output_folder, output_filename)
     except Exception as e:
-        logger.error(f"Generation failed: {e}")
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f'Failed to prepare output folder: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to prepare output folder: {str(e)}'
+        }), 500
+
+    # Generate the image
+    success = generate_image(
+        prompt, negative_prompt, height, width, steps,
+        cfg_scale, seed, sampler, scheduler, guidance, output_path
+    )
+
+    if success:
+        return jsonify({
+            'status': 'success',
+            'output': output_filename,
+            'message': 'Image generated successfully'
+        })
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': 'Image generation failed - check logs for details'
+        }), 500
+
+
+def generate_image(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path):
+    # Check if server is running by checking our own server_status endpoint
+    try:
+        response = requests.get("http://localhost:5000/server_status", timeout=1)
+        if response.status_code == 200:
+            status = response.json()
+            if status.get("process_running", False) and status.get("server_responsive", False):
+                # Server is running, use API
+                return generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path)
+    except:
+        pass
+
+    # Fall back to sd-cli
+    return generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path)
+
+def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path):
+    # Prepare the API request payload - using the exact format that works with curl
+    payload = {
+        "model": "sd-cpp-local",
+        "prompt": prompt,
+        "height": height,
+        "width": width,
+        "steps": steps,
+        "cfg_scale": cfg_scale,
+        "seed": seed,
+        "sampler": sampler,
+        "scheduler": scheduler,
+        "guidance": guidance
+    }
+
+    # Only include negative prompt if it's not empty
+    if negative_prompt and negative_prompt.strip():
+        payload["negative_prompt"] = negative_prompt
+
+    try:
+        app.logger.info(f"Sending API request with payload: {json.dumps(payload, indent=2)}")
+
+        # Send request to the API
+        response = requests.post(
+            "http://localhost:8080/v1/images/generations",
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(payload),
+            timeout=12000  # Increased timeout for larger images
+        )
+
+        app.logger.info(f"API response status: {response.status_code}")
+
+        if response.status_code == 200:
+            data = response.json()
+            app.logger.info(f"API response data keys: {list(data.keys())}")
+
+            if data.get("data") and len(data["data"]) > 0:
+                image_data = data["data"][0].get("b64_json")
+                if not image_data:
+                    app.logger.error("No b64_json in response data")
+                    return False
+
+                # Decode and save the base64 image
+                import base64
+                try:
+                    decoded_data = base64.b64decode(image_data)
+
+                    # Ensure output directory exists
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+                    with open(output_path, "wb") as f:
+                        f.write(decoded_data)
+
+                    # Verify file was written and has content
+                    if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                        app.logger.info(f"Successfully wrote image to {output_path}")
+                        app.logger.info(f"Image size: {os.path.getsize(output_path)} bytes")
+                        return True
+                    else:
+                        app.logger.error(f"File was created but is empty: {output_path}")
+                        return False
+                except Exception as e:
+                    app.logger.error(f"Failed to decode base64 image: {str(e)}")
+                    return False
+            else:
+                app.logger.error("API response missing image data")
+                return False
+        else:
+            app.logger.error(f"API request failed with status code: {response.status_code}")
+            app.logger.error(f"Response: {response.text}")
+            return False
+    except Exception as e:
+        app.logger.error(f"API request failed with error: {str(e)}", exc_info=True)
+        return False
+
+def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path):
+    # Original sd-cli implementation
+    cmd = [
+        "sd-cli", "generate",
+        "--prompt", prompt,
+        "--height", str(height),
+        "--width", str(width),
+        "--steps", str(steps),
+        "--cfg-scale", str(cfg_scale),
+        "--seed", str(seed),
+        "--sampler", sampler,
+        "--scheduler", scheduler,
+        "--guidance", str(guidance),
+        "--output", output_path
+    ]
+
+    if negative_prompt:
+        cmd.extend(["--negative-prompt", negative_prompt])
+
+    try:
+        subprocess.run(cmd, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"sd-cli generation failed: {str(e)}")
+        return False
 
 @app.route('/generate_cli', methods=['POST'])
 def generate_cli():
@@ -279,22 +433,22 @@ def generate_cli():
     data = request.json
     prompt = data.get('prompt', '')
     model_args = data.get('model_args', {})
-    
+
     if not prompt:
         return jsonify({'error': 'No prompt provided'}), 400
-    
+
     diffusion_model = model_args.get('diffusion_model')
     if not diffusion_model:
         return jsonify({'error': 'No diffusion model specified'}), 400
-    
+
     # Generate output filename
     timestamp = int(time.time())
     output_path = os.path.join(OUTPUT_DIR, f'output_{timestamp}.png')
-    
+
     # Build command
-    cmd = [SD_BINARY, '--mode', 'img_gen']
+    cmd = [SD_CLI_BINARY, '--mode', 'img_gen']
     cmd.extend(['--diffusion-model', diffusion_model])
-    cmd.extend(['--prompt', shlex.quote(prompt)])
+    cmd.extend(['--prompt', prompt])
     cmd.extend(['--output', output_path])
     cmd.extend(['--width', str(data.get('width', 512))])
     cmd.extend(['--height', str(data.get('height', 512))])
@@ -302,11 +456,11 @@ def generate_cli():
     cmd.extend(['--cfg-scale', str(data.get('cfg_scale', 7.0))])
     cmd.extend(['--seed', str(data.get('seed', -1))])
     cmd.extend(['--sampling-method', data.get('sampler', 'euler')])
-    cmd.extend(['--scheduler', data.get('scheduler', 'normal')])
-    
+    cmd.extend(['--scheduler', data.get('scheduler', 'discrete')])
+
     if data.get('negative_prompt'):
-        cmd.extend(['--negative-prompt', shlex.quote(data['negative_prompt'])])
-    # Add guidance if provided
+        cmd.extend(['--negative-prompt', data['negative_prompt']])
+    
     if data.get('guidance'):
         cmd.extend(['--guidance', str(data['guidance'])])
 
@@ -321,21 +475,21 @@ def generate_cli():
         cmd.extend(['--t5xxl', model_args['t5xxl']])
     if model_args.get('llm'):
         cmd.extend(['--llm', model_args['llm']])
-    
+
     # Add options
     if model_args.get('vae_tiling'):
         cmd.append('--vae-tiling')
     if model_args.get('diffusion_fa'):
         cmd.append('--diffusion-fa')
-    
+
     logger.info(f"Running CLI generation: {' '.join(cmd)}")
-    
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        
+
         if result.returncode != 0:
             return jsonify({'error': f'Generation failed: {result.stderr}'}), 500
-        
+
         if os.path.exists(output_path):
             with open(output_path, 'rb') as f:
                 image_data = base64.b64encode(f.read()).decode('utf-8')
@@ -348,7 +502,6 @@ def generate_cli():
         logger.error(f"CLI generation failed: {e}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/list_outputs')
 def list_outputs():
     """List generated images and videos"""
@@ -357,7 +510,7 @@ def list_outputs():
         for filename in os.listdir(OUTPUT_DIR):
             filepath = os.path.join(OUTPUT_DIR, filename)
             ext = filename.lower().split('.')[-1]
-            
+
             # Check for both images and videos
             if ext in ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'avi', 'mov', 'webm']:
                 file_type = 'video' if ext in ['mp4', 'avi', 'mov', 'webm'] else 'image'
@@ -375,7 +528,6 @@ def list_outputs():
     files.sort(key=lambda x: x['mtime'], reverse=True)
     return jsonify({'files': files})
 
-
 @app.route('/output/<path:filename>')
 def serve_output(filename):
     """Serve generated images"""
@@ -385,12 +537,13 @@ def serve_output(filename):
 def server_log():
     """Get server log output"""
     global sd_process
-    
+
     if sd_process is None:
         return jsonify({'log': 'No server running'})
-    
+
     # This is a simplified version - in practice you'd want to capture logs properly
     return jsonify({'log': 'Server is running. Check container logs for details.'})
+
 @app.route('/generate_video', methods=['POST'])
 def generate_video():
     """Generate a video using the loaded model (server mode)"""
@@ -404,32 +557,64 @@ def generate_video():
 
     try:
         import urllib.request
-        import urllib.parse
 
-        payload = json.dumps({
+        # Build payload for sd-server /generate endpoint
+        payload = {
             'prompt': prompt,
-            'negative_prompt': data.get('negative_prompt', ''),
-            'width': data.get('width', 832),
             'height': data.get('height', 480),
+            'width': data.get('width', 832),
             'steps': data.get('steps', 30),
             'cfg_scale': data.get('cfg_scale', 5.0),
             'seed': data.get('seed', -1),
             'sampler': data.get('sampler', 'euler'),
             'scheduler': data.get('scheduler', 'sgm_uniform'),
-            'guidance': data.get('guidance', 3.5),
             'video_frames': data.get('video_frames', 33),
             'fps': data.get('fps', 24)
-        }).encode('utf-8')
+        }
+
+        # Add negative prompt if provided
+        if data.get('negative_prompt'):
+            payload['negative_prompt'] = data.get('negative_prompt')
+
+        # Add guidance if provided
+        if data.get('guidance'):
+            payload['guidance'] = data.get('guidance')
+
+        # Add moe_boundary if provided
+        if data.get('moe_boundary'):
+            payload['moe_boundary'] = data.get('moe_boundary')
+
+        # Add init image if provided
+        if data.get('init_image'):
+            payload['init_img'] = data.get('init_image')
+
+        # Generate output filename
+        timestamp = int(time.time())
+        output_path = os.path.join(OUTPUT_DIR, f'output_video_{timestamp}.mp4')
+        payload['output'] = output_path
+
+        payload_json = json.dumps(payload).encode('utf-8')
+
+        logger.info(f"Sending video request to server: {payload}")
 
         req = urllib.request.Request(
-            f'http://127.0.0.1:{server_port}/vid_gen',
-            data=payload,
+            f'http://127.0.0.1:{server_port}/generate',
+            data=payload_json,
             headers={'Content-Type': 'application/json'}
         )
 
         response = urllib.request.urlopen(req, timeout=600)
         result = json.loads(response.read().decode('utf-8'))
 
+        # Check if output file was created
+        if os.path.exists(output_path):
+            with open(output_path, 'rb') as f:
+                video_data = base64.b64encode(f.read()).decode('utf-8')
+            return jsonify({'video': video_data, 'path': output_path})
+        elif 'video' in result:
+            # If the server returns base64 video directly
+            return jsonify({'video': result['video']})
+        
         return jsonify(result)
     except Exception as e:
         logger.error(f"Video generation failed: {e}")
@@ -454,7 +639,7 @@ def generate_video_cli():
     output_path = os.path.join(OUTPUT_DIR, f'output_video_{timestamp}')
 
     # Build command - use vid_gen mode
-    cmd = [SD_BINARY, '--mode', 'vid_gen']
+    cmd = [SD_CLI_BINARY, '--mode', 'vid_gen']
     cmd.extend(['--diffusion-model', diffusion_model])
     cmd.extend(['--prompt', prompt])
     cmd.extend(['--output', output_path])
@@ -469,12 +654,10 @@ def generate_video_cli():
 
     if data.get('negative_prompt'):
         cmd.extend(['--negative-prompt', data['negative_prompt']])
-    
-    # Add guidance if provided
+
     if data.get('guidance'):
         cmd.extend(['--guidance', str(data['guidance'])])
 
-    # Add flow-shift if provided
     flow_shift = data.get('flow_shift') or (model_args.get('flow_shift') if model_args else None)
     if flow_shift:
         cmd.extend(['--flow-shift', str(flow_shift)])
@@ -494,14 +677,14 @@ def generate_video_cli():
     logger.info(f"Running CLI video generation: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)  # 30 min timeout
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
 
         if result.returncode != 0:
             return jsonify({'error': f'Video generation failed: {result.stderr}'}), 500
 
-        # Look for the output video file (sd-cli typically adds .mp4 extension)
+        # Look for the output video file
         video_files = [f for f in os.listdir(OUTPUT_DIR) if f.startswith(f'output_video_{timestamp}')]
-        
+
         if video_files:
             video_path = os.path.join(OUTPUT_DIR, video_files[0])
             with open(video_path, 'rb') as f:
@@ -516,5 +699,4 @@ def generate_video_cli():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    
     app.run(host='0.0.0.0', port=5000, debug=True)
