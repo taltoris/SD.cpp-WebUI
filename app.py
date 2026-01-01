@@ -201,13 +201,15 @@ def load_model():
 
     logger.info(f"Starting SD server with command: {' '.join(cmd)}")
 
+    
+    sd_process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+    
     try:
-        sd_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
 
         current_model = os.path.basename(diffusion_model)
         current_model_type = model_type
@@ -355,7 +357,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             data=json.dumps(payload),
             timeout=12000  # Increased timeout for larger images
         )
-
+        app.logger.info(f"Full API response: {response.text}")
         app.logger.info(f"API response status: {response.status_code}")
 
         if response.status_code == 200:
@@ -485,7 +487,7 @@ def generate_cli():
     logger.info(f"Running CLI generation: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60000)
 
         if result.returncode != 0:
             return jsonify({'error': f'Generation failed: {result.stderr}'}), 500
@@ -603,7 +605,7 @@ def generate_video():
             headers={'Content-Type': 'application/json'}
         )
 
-        response = urllib.request.urlopen(req, timeout=600)
+        response = urllib.request.urlopen(req, timeout=600000)
         result = json.loads(response.read().decode('utf-8'))
 
         # Check if output file was created
@@ -677,7 +679,7 @@ def generate_video_cli():
     logger.info(f"Running CLI video generation: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60000)
 
         if result.returncode != 0:
             return jsonify({'error': f'Video generation failed: {result.stderr}'}), 500

@@ -936,9 +936,15 @@ async function generateImage(mode) {
         
         var data = await response.json();
         
-        if (response.ok && data.image) {
+        if (response.ok && (data.status === 'success' || data.image)) {
             var img = document.createElement('img');
-            img.src = 'data:image/png;base64,' + data.image;
+            if (data.image) {
+                // CLI mode - returns base64
+                img.src = 'data:image/png;base64,' + data.image;
+            } else if (data.output) {
+                // Server mode - returns filename
+                img.src = '/output/' + data.output;
+            }
             img.addEventListener('click', function() {
                 openModal(img.src);
             });
@@ -946,9 +952,9 @@ async function generateImage(mode) {
                 outputContainer.innerHTML = '';
                 outputContainer.appendChild(img);
             }
-            showMessage('Image generated successfully', 'success');
+            showMessage(data.message || 'Image generated successfully', 'success');
         } else {
-            showMessage(data.error || 'Failed to generate image', 'error');
+            showMessage(data.message || data.error || 'Failed to generate image', 'error');
             if (outputContainer) {
                 outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
             }
