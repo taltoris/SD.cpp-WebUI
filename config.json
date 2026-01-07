@@ -48,6 +48,30 @@
       "enable_negative_prompt": false
     }
   },
+  "flux2": {
+    "name": "Flux2",
+    "description": "Flux2 models with improved architecture and LLM integration",
+    "models": {
+      "diffusion": "flux2-dev-Q4_K_S.gguf",
+      "vae": "flux2_ae.safetensors",
+      "llm": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf"
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 1.0,
+      "guidance": 3.5,
+      "steps": 20,
+      "scheduler": "discrete",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "showGuidance": true
+    },
+    "params": {
+      "enable_CFG": false,
+      "enable_negative_prompt": false
+    }
+  },
   "sd3": {
     "name": "SD3.5",
     "description": "Stable Diffusion 3.5 with improved quality",

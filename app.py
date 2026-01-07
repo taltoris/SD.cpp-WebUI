@@ -8,6 +8,7 @@ import logging
 import shlex
 import base64
 import requests
+import random
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
@@ -139,6 +140,36 @@ def server_status():
         'port': server_port
     })
 
+@app.route('/upload_init_image', methods=['POST'])
+def upload_init_image():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image'}), 400
+    
+    file = request.files['image']
+    raw_data = file.read()
+    
+    try:
+        from PIL import Image
+        import io
+        
+        # Auto-detect + convert ANY format to PNG
+        img = Image.open(io.BytesIO(raw_data))
+        img = img.convert('RGBA')  # Ensure transparency support
+        
+        timestamp = int(datetime.now().timestamp())
+        filename = f"{timestamp}.png"
+        filepath = f"/tmp/{filename}"
+        
+        img.save(filepath, 'PNG')  # Force PNG output
+        logger.info(f"Converted {file.filename} -> PNG {img.size}: {filepath}")
+        
+        return jsonify({'success': True, 'path': filepath})
+        
+    except Exception as e:
+        logger.error(f"Image conversion failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/load_model', methods=['POST'])
 def load_model():
     """Load a model and start the SD server"""
@@ -186,31 +217,30 @@ def load_model():
         cmd.extend(['--embd-dir', data['embd_dir']])
     if data.get('threads'):
         cmd.extend(['--threads', str(data['threads'])])
- 
+
     generation_params = {
         '--cfg-scale': data.get('cfg_scale', '1.0'),
         '--guidance': data.get('guidance', '3.5'),
         '--sampling-method': data.get('sampling_method', 'euler'),
         '--scheduler': data.get('scheduler', 'discrete'),
-        '--rng': data.get('rng', 'cuda')
+        '--rng': data.get('rng', 'cuda'),
+        '--sampler-rng':'cuda'
     }
-    
+
     for flag, value in generation_params.items():
         if value is not None:
             cmd.extend([flag, str(value)])
 
     logger.info(f"Starting SD server with command: {' '.join(cmd)}")
 
-    
     sd_process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True
     )
-    
-    try:
 
+    try:
         current_model = os.path.basename(diffusion_model)
         current_model_type = model_type
 
@@ -263,6 +293,10 @@ def generate():
     for param in required_params:
         if param not in data:
             return jsonify({'status': 'error', 'message': f'Missing required parameter: {param}'}), 400
+    
+    seed = int(data['seed'])
+    if seed == -1:
+        seed = random.randint(0, 2**32 - 1)
 
     try:
         prompt = str(data['prompt'])
@@ -271,10 +305,11 @@ def generate():
         width = int(data['width'])
         steps = int(data['steps'])
         cfg_scale = float(data['cfg_scale'])
-        seed = int(data['seed'])
         sampler = str(data['sampler'])
         scheduler = str(data['scheduler'])
         guidance = float(data['guidance'])
+        init_img = data.get('init_img')
+        strength = float(data.get('strength', 0.75)) if data.get('strength') else None
     except (ValueError, TypeError) as e:
         return jsonify({'status': 'error', 'message': f'Invalid parameter type: {str(e)}'}), 400
 
@@ -297,7 +332,8 @@ def generate():
     # Generate the image
     success = generate_image(
         prompt, negative_prompt, height, width, steps,
-        cfg_scale, seed, sampler, scheduler, guidance, output_path
+        cfg_scale, seed, sampler, scheduler, guidance, output_path,
+        init_img, strength
     )
 
     if success:
@@ -312,23 +348,75 @@ def generate():
             'message': 'Image generation failed - check logs for details'
         }), 500
 
-
-def generate_image(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path):
+def generate_image(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img=None, strength=None):
     # Check if server is running by checking our own server_status endpoint
+    if seed == -1:
+        seed = random.randint(0, 2**32 - 1)
+
     try:
         response = requests.get("http://localhost:5000/server_status", timeout=1)
         if response.status_code == 200:
             status = response.json()
             if status.get("process_running", False) and status.get("server_responsive", False):
                 # Server is running, use API
-                return generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path)
+                return generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img, strength)
     except:
         pass
 
     # Fall back to sd-cli
-    return generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path)
+    return generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img, strength)
 
-def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path):
+
+def truncate_payload_values(payload_dict, max_value_length=100):
+    """Truncate dict values for logging - input must be DICT"""
+    import json
+    payload_copy = json.loads(json.dumps(payload_dict))  # Deep copy
+    
+    def truncate_value(value):
+        if isinstance(value, str) and len(value) > max_value_length:
+            if any(prefix in value[:50] for prefix in ['/9j/4AAQ', 'iVBORw0KGgo', 'UklGR']):
+                return f"{value[:30]}...[BASE64 {len(value)} chars]..."
+            return f"{value[:max_value_length]}...[TRUNCATED {len(value)} chars]..."
+        return value
+    
+    def truncate_recursive(obj):
+        if isinstance(obj, dict):
+            return {k: truncate_recursive(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [truncate_recursive(item) for item in obj]
+        else:
+            return truncate_value(obj)
+    
+    return truncate_recursive(payload_copy)
+
+
+def truncate_response_text(response_text, max_value_length=100):
+    """Truncate JSON response TEXT - input must be STR"""
+    import json
+    try:
+        parsed = json.loads(response_text)
+        def truncate_recursive(obj):
+            if isinstance(obj, dict):
+                return {k: truncate_value(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [truncate_recursive(item) for item in obj]
+            else:
+                return truncate_value(obj)
+        
+        def truncate_value(value):
+            if isinstance(value, str) and len(value) > max_value_length:
+                if any(prefix in str(value)[:50] for prefix in ['/9j/4AAQ', 'iVBORw0KGgo', 'UklGR']):
+                    return f"{str(value)[:30]}...[BASE64 {len(str(value))} chars]..."
+                return f"{str(value)[:max_value_length]}...[TRUNCATED]"
+            return value
+        
+        truncated = truncate_recursive(parsed)
+        return json.dumps(truncated, indent=2)
+    except:
+        return response_text[:500] + f"...[TEXT TRUNCATED {len(response_text)} chars]"
+
+
+def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img=None, strength=None):
     # Prepare the API request payload - using the exact format that works with curl
     payload = {
         "model": "sd-cpp-local",
@@ -343,12 +431,27 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         "guidance": guidance
     }
 
+    # Add init image if provided
+    # CRITICAL: Base64 + denoise for sd-server img2img
+    if init_img and strength:
+        import base64
+        with open(init_img, 'rb') as f:
+            img_b64 = base64.b64encode(f.read()).decode('utf-8')
+        
+        payload.update({
+            "image": img_b64,        # Base64 data
+            "denoise": strength,     # "denoise" NOT "strength"
+            "init_image": img_b64    # Fallback field name
+        })
+    
     # Only include negative prompt if it's not empty
     if negative_prompt and negative_prompt.strip():
         payload["negative_prompt"] = negative_prompt
 
     try:
-        app.logger.info(f"Sending API request with payload: {json.dumps(payload, indent=2)}")
+        log_payload = truncate_payload_values(payload)
+        # Safe logging - shows structure without dumping megabytes
+        app.logger.info(f"Sending API payload: {json.dumps(log_payload, indent=2)}")
 
         # Send request to the API
         response = requests.post(
@@ -357,7 +460,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             data=json.dumps(payload),
             timeout=12000  # Increased timeout for larger images
         )
-        app.logger.info(f"Full API response: {response.text}")
+        app.logger.info(f"Full API response: {truncate_response_text(response.text )}")
         app.logger.info(f"API response status: {response.status_code}")
 
         if response.status_code == 200:
@@ -403,7 +506,10 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         app.logger.error(f"API request failed with error: {str(e)}", exc_info=True)
         return False
 
-def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path):
+def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img=None, strength=None):
+    if seed == -1:
+        seed = random.randint(0, 2**32 - 1)
+
     # Original sd-cli implementation
     cmd = [
         "sd-cli", "generate",
@@ -418,6 +524,12 @@ def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, s
         "--guidance", str(guidance),
         "--output", output_path
     ]
+
+    # Add init image if provided
+    if init_img:
+        cmd.extend(["--init-img", init_img])
+        if strength is not None:
+            cmd.extend(["--strength", str(strength)])
 
     if negative_prompt:
         cmd.extend(["--negative-prompt", negative_prompt])
@@ -446,6 +558,9 @@ def generate_cli():
     # Generate output filename
     timestamp = int(time.time())
     output_path = os.path.join(OUTPUT_DIR, f'output_{timestamp}.png')
+    seed = int(data['seed'])
+    if seed == -1:
+        seed = random.randint(0, 2**32 - 1)
 
     # Build command
     cmd = [SD_CLI_BINARY, '--mode', 'img_gen']
@@ -456,15 +571,21 @@ def generate_cli():
     cmd.extend(['--height', str(data.get('height', 512))])
     cmd.extend(['--steps', str(data.get('steps', 20))])
     cmd.extend(['--cfg-scale', str(data.get('cfg_scale', 7.0))])
-    cmd.extend(['--seed', str(data.get('seed', -1))])
+    cmd.extend(['--seed', str(seed)])
     cmd.extend(['--sampling-method', data.get('sampler', 'euler')])
     cmd.extend(['--scheduler', data.get('scheduler', 'discrete')])
 
     if data.get('negative_prompt'):
         cmd.extend(['--negative-prompt', data['negative_prompt']])
-    
+
     if data.get('guidance'):
         cmd.extend(['--guidance', str(data['guidance'])])
+
+    # Add init image if provided
+    if data.get('init_img'):
+        cmd.extend(['--init-img', data['init_img']])
+        if data.get('strength'):
+            cmd.extend(['--strength', str(data['strength'])])
 
     # Add optional models
     if model_args.get('vae'):
@@ -559,6 +680,9 @@ def generate_video():
 
     try:
         import urllib.request
+        seed = int(data['seed'])
+        if seed == -1:
+            seed = random.randint(0, 2**32 - 1)
 
         # Build payload for sd-server /generate endpoint
         payload = {
@@ -567,7 +691,7 @@ def generate_video():
             'width': data.get('width', 832),
             'steps': data.get('steps', 30),
             'cfg_scale': data.get('cfg_scale', 5.0),
-            'seed': data.get('seed', -1),
+            'seed': seed,
             'sampler': data.get('sampler', 'euler'),
             'scheduler': data.get('scheduler', 'sgm_uniform'),
             'video_frames': data.get('video_frames', 33),
@@ -616,7 +740,7 @@ def generate_video():
         elif 'video' in result:
             # If the server returns base64 video directly
             return jsonify({'video': result['video']})
-        
+
         return jsonify(result)
     except Exception as e:
         logger.error(f"Video generation failed: {e}")
@@ -640,6 +764,11 @@ def generate_video_cli():
     timestamp = int(time.time())
     output_path = os.path.join(OUTPUT_DIR, f'output_video_{timestamp}')
 
+    seed = int(data['seed'])
+
+    if seed == -1:
+        seed = random.randint(0, 2**32 - 1)
+
     # Build command - use vid_gen mode
     cmd = [SD_CLI_BINARY, '--mode', 'vid_gen']
     cmd.extend(['--diffusion-model', diffusion_model])
@@ -649,7 +778,7 @@ def generate_video_cli():
     cmd.extend(['--height', str(data.get('height', 480))])
     cmd.extend(['--steps', str(data.get('steps', 30))])
     cmd.extend(['--cfg-scale', str(data.get('cfg_scale', 5.0))])
-    cmd.extend(['--seed', str(data.get('seed', -1))])
+    cmd.extend(['--seed', str(seed)])
     cmd.extend(['--sampling-method', data.get('sampler', 'euler')])
     cmd.extend(['--scheduler', data.get('scheduler', 'sgm_uniform')])
     cmd.extend(['--video-frames', str(data.get('video_frames', 33))])

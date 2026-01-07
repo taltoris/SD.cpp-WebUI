@@ -9,9 +9,10 @@ services:
       - "8080:8080"
     volumes:
       - ./:/app/
-      - ../stable-diffusion.cpp/build/bin/:/usr/local/bin/
-      - ../stable-diffusion.cpp/models:/app/models:ro
-      - ../stable-diffusion.cpp/output:/app/output
+      - /home/taltoris/sandbox/stable-diffusion.cpp/build/bin/:/usr/local/bin/
+      - /home/taltoris/sandbox/stable-diffusion.cpp/models:/app/models:ro
+      - /home/taltoris/sandbox//stable-diffusion.cpp/output:/app/output
+      - /dev/urandom:/dev/urandom:ro  # Boost entropy: mount host urandom as container random
     environment:
       - FLASK_ENV=development
       - NVIDIA_VISIBLE_DEVICES=all
