@@ -219,6 +219,7 @@ def load_model():
         cmd.extend(['--threads', str(data['threads'])])
 
     generation_params = {
+        '--seed': data.get('seed', '-1.0'),
         '--cfg-scale': data.get('cfg_scale', '1.0'),
         '--guidance': data.get('guidance', '3.5'),
         '--sampling-method': data.get('sampling_method', 'euler'),
@@ -294,10 +295,6 @@ def generate():
         if param not in data:
             return jsonify({'status': 'error', 'message': f'Missing required parameter: {param}'}), 400
     
-    seed = int(data['seed'])
-    if seed == -1:
-        seed = random.randint(0, 2**32 - 1)
-
     try:
         prompt = str(data['prompt'])
         negative_prompt = str(data.get('negative_prompt', ''))
@@ -307,6 +304,7 @@ def generate():
         cfg_scale = float(data['cfg_scale'])
         sampler = str(data['sampler'])
         scheduler = str(data['scheduler'])
+        seed = int(data['seed'])
         guidance = float(data['guidance'])
         init_img = data.get('init_img')
         strength = float(data.get('strength', 0.75)) if data.get('strength') else None
@@ -349,9 +347,6 @@ def generate():
         }), 500
 
 def generate_image(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img=None, strength=None):
-    # Check if server is running by checking our own server_status endpoint
-    if seed == -1:
-        seed = random.randint(0, 2**32 - 1)
 
     try:
         response = requests.get("http://localhost:5000/server_status", timeout=1)
@@ -425,7 +420,6 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         "width": width,
         "steps": steps,
         "cfg_scale": cfg_scale,
-        "seed": seed,
         "sampler": sampler,
         "scheduler": scheduler,
         "guidance": guidance
@@ -507,9 +501,6 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         return False
 
 def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img=None, strength=None):
-    if seed == -1:
-        seed = random.randint(0, 2**32 - 1)
-
     # Original sd-cli implementation
     cmd = [
         "sd-cli", "generate",
@@ -558,9 +549,6 @@ def generate_cli():
     # Generate output filename
     timestamp = int(time.time())
     output_path = os.path.join(OUTPUT_DIR, f'output_{timestamp}.png')
-    seed = int(data['seed'])
-    if seed == -1:
-        seed = random.randint(0, 2**32 - 1)
 
     # Build command
     cmd = [SD_CLI_BINARY, '--mode', 'img_gen']
@@ -571,7 +559,7 @@ def generate_cli():
     cmd.extend(['--height', str(data.get('height', 512))])
     cmd.extend(['--steps', str(data.get('steps', 20))])
     cmd.extend(['--cfg-scale', str(data.get('cfg_scale', 7.0))])
-    cmd.extend(['--seed', str(seed)])
+    cmd.extend(['--seed', str(data.get('seed',-1))])
     cmd.extend(['--sampling-method', data.get('sampler', 'euler')])
     cmd.extend(['--scheduler', data.get('scheduler', 'discrete')])
 
@@ -680,9 +668,6 @@ def generate_video():
 
     try:
         import urllib.request
-        seed = int(data['seed'])
-        if seed == -1:
-            seed = random.randint(0, 2**32 - 1)
 
         # Build payload for sd-server /generate endpoint
         payload = {
@@ -691,7 +676,7 @@ def generate_video():
             'width': data.get('width', 832),
             'steps': data.get('steps', 30),
             'cfg_scale': data.get('cfg_scale', 5.0),
-            'seed': seed,
+            'seed': data.get('seed',-1),
             'sampler': data.get('sampler', 'euler'),
             'scheduler': data.get('scheduler', 'sgm_uniform'),
             'video_frames': data.get('video_frames', 33),
@@ -764,10 +749,6 @@ def generate_video_cli():
     timestamp = int(time.time())
     output_path = os.path.join(OUTPUT_DIR, f'output_video_{timestamp}')
 
-    seed = int(data['seed'])
-
-    if seed == -1:
-        seed = random.randint(0, 2**32 - 1)
 
     # Build command - use vid_gen mode
     cmd = [SD_CLI_BINARY, '--mode', 'vid_gen']
@@ -778,7 +759,7 @@ def generate_video_cli():
     cmd.extend(['--height', str(data.get('height', 480))])
     cmd.extend(['--steps', str(data.get('steps', 30))])
     cmd.extend(['--cfg-scale', str(data.get('cfg_scale', 5.0))])
-    cmd.extend(['--seed', str(seed)])
+    cmd.extend(['--seed', str(data.get('seed'))])
     cmd.extend(['--sampling-method', data.get('sampler', 'euler')])
     cmd.extend(['--scheduler', data.get('scheduler', 'sgm_uniform')])
     cmd.extend(['--video-frames', str(data.get('video_frames', 33))])
