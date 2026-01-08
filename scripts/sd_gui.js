@@ -697,45 +697,57 @@ elements.videoGenerateBtn.click();
 console.log('Event listeners set up complete');
 }
 
-// Check server status
 async function checkServerStatus() {
-try {
-var response = await fetch('/server_status');
-var data = await response.json();
+    try {
+        var response = await fetch('/server_status');
+        var data = await response.json();
 
-serverOnline = data.server_responsive;
-modelLoaded = data.process_running && data.server_responsive;
+        serverOnline = data.server_responsive;
+        modelLoaded = data.process_running && data.server_responsive;
 
-if (elements.serverStatus && elements.serverStatusText) {
-if (data.server_responsive) {
-elements.serverStatus.classList.add('active');
-elements.serverStatusText.textContent = 'Online';
-} else if (data.process_running) {
-elements.serverStatus.classList.remove('active');
-elements.serverStatusText.textContent = 'Starting...';
-} else {
-elements.serverStatus.classList.remove('active');
-elements.serverStatusText.textContent = 'Offline';
-}
+        // ALWAYS UPDATE MODEL INDICATORS
+        if (elements.currentModelText) {
+            elements.currentModelText.textContent = data.current_model || 'None';
+        }
+        if (elements.currentModelTypeText) {
+            elements.currentModelTypeText.textContent = data.model_type || '-';
+        }
+
+        // YOUR PERFECT STATE MACHINE:
+        const serverModeActive = data.process_running || data.server_responsive;
+        
+        // 1. FREEZE GUI ELEMENTS when process_running (loading OR loaded)
+        document.querySelectorAll('#modelType, #diffusionModel, #vaeModel, #llmModel, #clipLModel, #clipGModel, #t5xxlModel, #seed, #sampler, #scheduler, #threads, #vaeTiling, #offloadCpu, #diffusionFa, #flowShift').forEach(el => {
+            el.disabled = serverModeActive;
+            el.style.opacity = serverModeActive ? '0.5' : '1';
+        });
+
+        // 2. SERVER STATUS LOGIC
+        if (elements.serverStatus && elements.serverStatusText) {
+            if (data.process_running && data.server_responsive) {
+                // BOTH true → "Online"
+                elements.serverStatus.classList.add('active');
+                elements.serverStatusText.textContent = 'Online';
+            } else if (!data.process_running) {
+                // process_running = false → "Offline" 
+                elements.serverStatus.classList.remove('active');
+                elements.serverStatusText.textContent = 'Offline';
+            }
+            // process_running=true but !server_responsive → "Starting..." (don't touch)
+        }
+
+    } catch (error) {
+        if (elements.serverStatus) {
+            elements.serverStatus.classList.remove('active');
+        }
+        if (elements.serverStatusText) {
+            elements.serverStatusText.textContent = 'Error';
+        }
+        serverOnline = false;
+        modelLoaded = false;
+    }
 }
 
-if (elements.currentModelText) {
-elements.currentModelText.textContent = data.current_model || 'None';
-}
-if (elements.currentModelTypeText) {
-elements.currentModelTypeText.textContent = data.model_type || '-';
-}
-} catch (error) {
-if (elements.serverStatus) {
-elements.serverStatus.classList.remove('active');
-}
-if (elements.serverStatusText) {
-elements.serverStatusText.textContent = 'Error';
-}
-serverOnline = false;
-modelLoaded = false;
-}
-}
 
 // Build model args for loading
 function buildModelArgs() {
