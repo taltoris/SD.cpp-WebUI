@@ -188,8 +188,11 @@ def load_model():
 
     # Build command using sd-server
     cmd = [SD_SERVER_BINARY,'--listen-ip', '0.0.0.0', '--listen-port', str(server_port)]
-    cmd.extend(['--diffusion-model', diffusion_model])
-
+    if model_type in ['SD3', 'SD3.5']:
+        cmd.extend(['--model', diffusion_model])
+    else:
+        cmd.extend(['--diffusion-model', diffusion_model])
+    
     # Add optional models
     if data.get('vae'):
         cmd.extend(['--vae', data['vae']])
@@ -418,6 +421,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         "prompt": prompt,
         "height": height,
         "width": width,
+        "size": f"{width}x{height}",
         "steps": steps,
         "cfg_scale": cfg_scale,
         "sampler": sampler,
