@@ -47,6 +47,7 @@ sd_process = None
 current_model = None
 current_model_type = None
 server_port = 8080
+is_generating = False
 
 def get_file_size_human(size_bytes):
     """Convert bytes to human readable format"""
@@ -118,7 +119,7 @@ def list_models():
 @app.route('/server_status')
 def server_status():
     """Check if the SD server is running and responsive"""
-    global sd_process, current_model, current_model_type
+    global sd_process, current_model, current_model_type, is_generating
 
     process_running = sd_process is not None and sd_process.poll() is None
     server_responsive = False
@@ -133,10 +134,11 @@ def server_status():
 
     return jsonify({
         'process_running': process_running,
-        'server_responsive': server_responsive,
+        'server_responsive': server_responsive and not is_generating,  # *** MODIFIED ***
         'current_model': current_model,
         'model_type': current_model_type,
-        'port': server_port
+        'port': server_port,
+        'is_generating': is_generating  # *** ADD THIS ***
     })
 
 @app.route('/upload_init_image', methods=['POST'])
@@ -341,12 +343,15 @@ def is_server_running():
     except:
         return False
 
+
 @app.route('/generate', methods=['POST'])
 def generate():
     """Generate image - intelligently routes to API or CLI"""
+    global is_generating  # *** ADD THIS ***
+    
     data = request.json
     logger.info(f"Generate request: {json.dumps(truncate_payload_values(data), indent=2)}")
-    
+
     if not data:
         return jsonify({'status': 'error', 'message': 'No data provided'}), 400
 
@@ -355,7 +360,10 @@ def generate():
     for param in required_params:
         if param not in data:
             return jsonify({'status': 'error', 'message': f'Missing required parameter: {param}'}), 400
-    
+
+    # Set generating flag
+    is_generating = True  # *** ADD THIS ***
+
     try:
         prompt = str(data['prompt'])
         negative_prompt = str(data.get('negative_prompt', ''))
@@ -370,6 +378,7 @@ def generate():
         init_img = data.get('init_img')
         strength = float(data.get('strength', 0.75)) if data.get('strength') else None
     except (ValueError, TypeError) as e:
+        is_generating = False  # *** RESET FLAG ON ERROR ***
         return jsonify({'status': 'error', 'message': f'Invalid parameter type: {str(e)}'}), 400
 
     # Generate timestamp for output filename
@@ -382,41 +391,52 @@ def generate():
         output_path = os.path.join(OUTPUT_DIR, output_filename)
     except Exception as e:
         logger.error(f'Failed to prepare output folder: {str(e)}')
+        is_generating = False  # *** RESET FLAG ON ERROR ***
         return jsonify({
             'status': 'error',
             'message': f'Failed to prepare output folder: {str(e)}'
         }), 500
 
-    # Check if server is running and route accordingly
-    if is_server_running():
-        logger.info("Routing to API (server is running)")
-        success = generate_via_api(
-            prompt, negative_prompt, height, width, steps,
-            cfg_scale, seed, sampler, scheduler, guidance, output_path,
-            init_img, strength
-        )
-    else:
-        # Fall back to CLI mode - need model_args from request
-        logger.info("Routing to CLI (server is not running)")
-        model_args = data.get('model_args', {})
-        logger.info(f"CLI model_args: {json.dumps(truncate_payload_values(model_args), indent=2)}")
-        success = generate_via_cli(
-            prompt, negative_prompt, height, width, steps,
-            cfg_scale, seed, sampler, scheduler, guidance, output_path,
-            init_img, strength, model_args
-        )
+    try:
+        # Check if server is running and route accordingly
+        if is_server_running():
+            logger.info("Routing to API (server is running)")
+            success = generate_via_api(
+                prompt, negative_prompt, height, width, steps,
+                cfg_scale, seed, sampler, scheduler, guidance, output_path,
+                init_img, strength
+            )
+        else:
+            # Fall back to CLI mode - need model_args from request
+            logger.info("Routing to CLI (server is not running)")
+            model_args = data.get('model_args', {})
+            logger.info(f"CLI model_args: {json.dumps(truncate_payload_values(model_args), indent=2)}")
+            success = generate_via_cli(
+                prompt, negative_prompt, height, width, steps,
+                cfg_scale, seed, sampler, scheduler, guidance, output_path,
+                init_img, strength, model_args
+            )
 
-    if success:
-        return jsonify({
-            'status': 'success',
-            'output': output_filename,
-            'message': 'Image generated successfully'
-        })
-    else:
+        if success:
+            return jsonify({
+                'status': 'success',
+                'output': output_filename,
+                'message': 'Image generated successfully'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Image generation failed - check logs for details'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Generation exception: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
-            'message': 'Image generation failed - check logs for details'
+            'message': f'Generation failed: {str(e)}'
         }), 500
+    finally:
+        is_generating = False  # *** ALWAYS RESET FLAG ***
 
 
 def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, seed, sampler, scheduler, guidance, output_path, init_img=None, strength=None):

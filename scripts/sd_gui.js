@@ -877,100 +877,240 @@ params.guidance = parseFloat(elements.guidance.value);
 return params;
 }
 
-// Generate image
+
+// Generate image - FIXED VERSION
 async function generateImage() {
-var prompt = elements.prompt ? elements.prompt.value.trim() : '';
+    var prompt = elements.prompt ? elements.prompt.value.trim() : '';
 
-if (!prompt) {
-showMessage('Please enter a prompt', 'error');
-return;
+    if (!prompt) {
+        showMessage('Please enter a prompt', 'error');
+        return;
+    }
+
+    var txt2imgInitImage = document.getElementById('txt2imgInitImage');
+    var hasInitImage = txt2imgInitImage && txt2imgInitImage.files && txt2imgInitImage.files[0];
+
+    if (elements.generateBtn) elements.generateBtn.disabled = true;
+    if (elements.loadingIndicator) elements.loadingIndicator.classList.add('active');
+    if (elements.outputContainer) elements.outputContainer.innerHTML = '';
+
+    // *** Set server status to "Busy" with orange dot ***
+    console.log('=== GENERATION STARTING ===');
+    setServerBusyStatus(true);
+    console.log('isGenerating is now:', isGenerating);
+
+    var params = buildGenerationParams();
+
+    console.log('Generating image with params:', params);
+
+    try {
+        // If there's an init image, upload it first
+        if (hasInitImage) {
+            var formData = new FormData();
+            formData.append('image', txt2imgInitImage.files[0]);
+
+            var uploadResponse = await fetch('/upload_init_image', {
+                method: 'POST',
+                body: formData
+            });
+
+            var uploadData = await uploadResponse.json();
+
+            if (uploadResponse.ok && uploadData.path) {
+                params.init_img = uploadData.path;
+
+                // Add strength
+                var txt2imgStrength = document.getElementById('txt2imgStrength');
+                if (txt2imgStrength) {
+                    params.strength = parseFloat(txt2imgStrength.value);
+                }
+            } else {
+                throw new Error(uploadData.error || 'Failed to upload init image');
+            }
+        }
+
+        var endpoint = '/generate';
+
+        if (!serverOnline || !modelLoaded) {
+            params.use_cli = true;
+            params.model_args = buildModelArgs();
+        }
+
+        console.log('Using endpoint:', endpoint);
+
+        // *** FIX 1: Increase timeout significantly for long-running operations ***
+        var controller = new AbortController();
+        var timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes timeout
+
+        var response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        // *** FIX 2: Better error handling - check if response is valid JSON ***
+        var data;
+        try {
+            data = await response.json();
+            console.log('Parsed response data:', data);
+        } catch (jsonError) {
+            console.error('JSON parse error:', jsonError);
+            console.log('Response status:', response.status);
+            
+            // Try to get response text for debugging
+            var responseClone = response.clone();
+            var responseText = await responseClone.text();
+            console.log('Response text (first 500 chars):', responseText.substring(0, 500));
+            
+            // If generation might still be running, poll for results
+            showMessage('Generation started but response was invalid. Checking gallery...', 'info');
+            
+            // Wait a bit then check gallery
+            setTimeout(async () => {
+                await loadGallery();
+                var galleryResponse = await fetch('/list_outputs');
+                var galleryData = await galleryResponse.json();
+                
+                if (galleryData.files && galleryData.files.length > 0) {
+                    // Get most recent file
+                    var latestFile = galleryData.files[0];
+                    
+                    var img = document.createElement('img');
+                    img.src = latestFile.url;
+                    img.addEventListener('click', function() {
+                        openModal(img.src);
+                    });
+                    if (elements.outputContainer) {
+                        elements.outputContainer.innerHTML = '';
+                        elements.outputContainer.appendChild(img);
+                    }
+                    showMessage('Image generated successfully (recovered from gallery)', 'success');
+                } else {
+                    if (elements.outputContainer) {
+                        elements.outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>No image found</p></div>';
+                    }
+                }
+            }, 2000);
+            
+            return; // Exit early
+        }
+
+        // *** FIX 3: Handle successful generation ***
+        if (response.ok && (data.status === 'success' || data.image)) {
+            console.log('Generation successful! Response data:', data);
+            var img = document.createElement('img');
+            if (data.image) {
+                img.src = 'data:image/png;base64,' + data.image;
+                console.log('Using base64 image from response');
+            } else if (data.output) {
+                img.src = '/output/' + data.output;
+                console.log('Using output filename:', data.output);
+            } else {
+                console.error('No image data found in response:', data);
+                throw new Error('No image data in response');
+            }
+            img.addEventListener('click', function() {
+                openModal(img.src);
+            });
+            if (elements.outputContainer) {
+                elements.outputContainer.innerHTML = '';
+                elements.outputContainer.appendChild(img);
+            }
+            showMessage(data.message || 'Image generated successfully', 'success');
+        } else {
+            console.error('Generation failed. Response:', data);
+            showMessage(data.message || data.error || 'Failed to generate image', 'error');
+            if (elements.outputContainer) {
+                elements.outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+            }
+        }
+    } catch (error) {
+        // *** FIX 4: Distinguish between timeout and actual errors ***
+        if (error.name === 'AbortError') {
+            showMessage('Generation timed out. Check gallery for results...', 'warning');
+            
+            // Poll gallery after timeout
+            setTimeout(async () => {
+                await loadGallery();
+            }, 2000);
+        } else {
+            showMessage('Failed to generate image: ' + error.message, 'error');
+            if (elements.outputContainer) {
+                elements.outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
+            }
+        }
+    } finally {
+        if (elements.generateBtn) elements.generateBtn.disabled = false;
+        if (elements.loadingIndicator) elements.loadingIndicator.classList.remove('active');
+        
+        // *** Clear busy status ***
+        console.log('=== GENERATION COMPLETE ===');
+        console.log('isGenerating before clear:', isGenerating);
+        setServerBusyStatus(false);
+        console.log('isGenerating after clear:', isGenerating);
+    }
 }
 
-var txt2imgInitImage = document.getElementById('txt2imgInitImage');
-var hasInitImage = txt2imgInitImage && txt2imgInitImage.files && txt2imgInitImage.files[0];
-
-if (elements.generateBtn) elements.generateBtn.disabled = true;
-if (elements.loadingIndicator) elements.loadingIndicator.classList.add('active');
-if (elements.outputContainer) elements.outputContainer.innerHTML = '';
-
-var params = buildGenerationParams();
-
-console.log('Generating image with params:', params);
-
-try {
-// If there's an init image, upload it first
-if (hasInitImage) {
-var formData = new FormData();
-formData.append('image', txt2imgInitImage.files[0]);
-
-var uploadResponse = await fetch('/upload_init_image', {
-method: 'POST',
-body: formData
-});
-
-var uploadData = await uploadResponse.json();
-
-if (uploadResponse.ok && uploadData.path) {
-params.init_img = uploadData.path;
-
-// Add strength
-var txt2imgStrength = document.getElementById('txt2imgStrength');
-if (txt2imgStrength) {
-params.strength = parseFloat(txt2imgStrength.value);
-}
-} else {
-throw new Error(uploadData.error || 'Failed to upload init image');
-}
+// *** NEW: Set server busy status ***
+function setServerBusyStatus(isBusy) {
+    console.log('setServerBusyStatus called with isBusy =', isBusy); // *** Debug ***
+    isGenerating = isBusy; // *** Set the global flag ***
+    
+    if (elements.serverStatus && elements.serverStatusText) {
+        if (isBusy) {
+            console.log('Setting status to Busy (orange)'); // *** Debug ***
+            elements.serverStatus.classList.remove('active');
+            elements.serverStatus.classList.add('busy');
+            elements.serverStatusText.textContent = 'Busy';
+        } else {
+            console.log('Clearing busy status, calling checkServerStatus'); // *** Debug ***
+            // Remove busy class and restore to online/offline based on actual status
+            elements.serverStatus.classList.remove('busy');
+            // Force an immediate status check to restore proper state
+            checkServerStatus();
+        }
+    }
 }
 
-var endpoint = '/generate';
+// *** FIX 5: Update showMessage to support 'warning' and 'info' types ***
+function showMessage(message, type) {
+    type = type || 'error';
 
-if (!serverOnline || !modelLoaded) {
-params.use_cli = true;
-params.model_args = buildModelArgs();
+    if (!elements.messageArea) {
+        console.log('Message (' + type + '):', message);
+        return;
+    }
+
+    var className;
+    switch(type) {
+        case 'error':
+            className = 'error-message';
+            break;
+        case 'success':
+            className = 'success-message';
+            break;
+        case 'warning':
+            className = 'warning-message';
+            break;
+        case 'info':
+            className = 'info-message';
+            break;
+        default:
+            className = 'error-message';
+    }
+    
+    elements.messageArea.innerHTML = '<div class="' + className + '">' + message + '</div>';
+
+    setTimeout(function() {
+        if (elements.messageArea) {
+            elements.messageArea.innerHTML = '';
+        }
+    }, 5000);
 }
 
-console.log('Using endpoint:', endpoint);
-
-var response = await fetch(endpoint, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(params)
-});
-
-var data = await response.json();
-
-if (response.ok && (data.status === 'success' || data.image)) {
-var img = document.createElement('img');
-if (data.image) {
-img.src = 'data:image/png;base64,' + data.image;
-} else if (data.output) {
-img.src = '/output/' + data.output;
-}
-img.addEventListener('click', function() {
-openModal(img.src);
-});
-if (elements.outputContainer) {
-elements.outputContainer.innerHTML = '';
-elements.outputContainer.appendChild(img);
-}
-showMessage(data.message || 'Image generated successfully', 'success');
-} else {
-showMessage(data.message || data.error || 'Failed to generate image', 'error');
-if (elements.outputContainer) {
-elements.outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
-}
-}
-} catch (error) {
-showMessage('Failed to generate image: ' + error.message, 'error');
-if (elements.outputContainer) {
-elements.outputContainer.innerHTML = '<div class="placeholder"><div class="placeholder-icon">[X]</div><p>Generation failed</p></div>';
-}
-} finally {
-if (elements.generateBtn) elements.generateBtn.disabled = false;
-if (elements.loadingIndicator) elements.loadingIndicator.classList.remove('active');
-}
-}
 
 // File to base64
 function fileToBase64(file) {
@@ -1193,25 +1333,6 @@ elements.serverLog.textContent = data.log || 'No log data';
 } catch (error) {
 elements.serverLog.textContent = 'Failed to load log';
 }
-}
-
-// Show message
-function showMessage(message, type) {
-type = type || 'error';
-
-if (!elements.messageArea) {
-console.log('Message (' + type + '):', message);
-return;
-}
-
-var className = type === 'error' ? 'error-message' : 'success-message';
-elements.messageArea.innerHTML = '<div class="' + className + '">' + message + '</div>';
-
-setTimeout(function() {
-if (elements.messageArea) {
-elements.messageArea.innerHTML = '';
-}
-}, 5000);
 }
 
 // Clear the init image input and reset strength slider
