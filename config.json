@@ -98,6 +98,30 @@
       "enable_negative_prompt": true
     }
   },
+  "qwen_image_edit": {
+    "name": "Qwen Image Edit",
+    "description": "Qwen-integrated image editing with diffusion and LLM",
+    "models": {
+      "diffusion": "qwen-image-edit-2511-Q3_K_M.gguf",
+      "llm": "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf",
+      "vae": "qwen_image_vae.safetensors"
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 2.5,
+      "guidance": 3.5,
+      "steps": 20,
+      "scheduler": "sgm_uniform",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "showGuidance": true
+    },
+    "params": {
+      "enable_CFG": true,
+      "enable_negative_prompt": true
+    }
+  },
   "wan": {
     "name": "Wan",
     "description": "Wan models for video and image generation",

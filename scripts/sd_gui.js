@@ -37,6 +37,7 @@ generateBtn: document.getElementById('generateBtn'),
 videoGenerateBtn: document.getElementById('videoGenerateBtn'),
 refreshGalleryBtn: document.getElementById('refreshGalleryBtn'),
 refreshLogBtn: document.getElementById('refreshLogBtn'),
+clearInitImageBtn: document.getElementById('clearInitImageBtn'),
 
 // Generation settings
 width: document.getElementById('width'),
@@ -590,6 +591,10 @@ elements.moeBoundaryValue.textContent = this.value;
 });
 }
 
+if (elements.clearInitImageBtn) {
+    elements.clearInitImageBtn.addEventListener('click', clearInitImage);
+}
+
 // Show/hide strength slider when init image is selected
 var txt2imgInitImage = document.getElementById('txt2imgInitImage');
 var txt2imgStrengthGroup = document.getElementById('txt2imgStrengthGroup');
@@ -918,7 +923,7 @@ throw new Error(uploadData.error || 'Failed to upload init image');
 }
 }
 
-var endpoint = serverOnline && modelLoaded ? '/generate' : '/generate_cli';
+var endpoint = '/generate';
 
 if (!serverOnline || !modelLoaded) {
 params.use_cli = true;
@@ -1207,6 +1212,32 @@ if (elements.messageArea) {
 elements.messageArea.innerHTML = '';
 }
 }, 5000);
+}
+
+// Clear the init image input and reset strength slider
+function clearInitImage() {
+    const input = document.getElementById('txt2imgInitImage');
+    const strengthGroup = document.getElementById('txt2imgStrengthGroup');
+
+    if (input) {
+        input.value = ''; // Clear file input
+    }
+
+    if (strengthGroup) {
+        strengthGroup.style.display = 'none'; // Hide strength slider if visible
+    }
+
+    // Optional: Reset the strength slider value if needed
+    const strengthSlider = document.getElementById('txt2imgStrength');
+    if (strengthSlider) {
+        strengthSlider.value = 0.75;
+        if (document.getElementById('txt2imgStrengthValue')) {
+            document.getElementById('txt2imgStrengthValue').textContent = '0.75';
+        }
+    }
+
+    // Optional: Show a small feedback message
+    showMessage('Image cleared', 'success');
 }
 
 // Open modal
