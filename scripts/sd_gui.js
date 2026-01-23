@@ -717,12 +717,19 @@ async function checkServerStatus() {
         if (elements.currentModelTypeText) {
             elements.currentModelTypeText.textContent = data.model_type || '-';
         }
-
+        
+        // NEW: Sync model type dropdown with loaded model
+        if (data.model_type && elements.modelType && elements.modelType.value !== data.model_type) {
+            currentModelType = data.model_type;
+            elements.modelType.value = data.model_type;
+            applyDefaults();
+        }
+        
         // YOUR PERFECT STATE MACHINE:
         const serverModeActive = data.process_running || data.server_responsive;
         
         // 1. FREEZE GUI ELEMENTS when process_running (loading OR loaded)
-        document.querySelectorAll('#modelType, #diffusionModel, #vaeModel, #llmModel, #clipLModel, #clipGModel, #t5xxlModel, #seed, #sampler, #scheduler, #threads, #vaeTiling, #offloadCpu, #diffusionFa, #flowShift').forEach(el => {
+        document.querySelectorAll('#modelType, #diffusionModel, #vaeModel, #loadModelBtn, #llmModel, #clipLModel, #clipGModel, #t5xxlModel, #seed, #sampler, #scheduler, #threads, #vaeTiling, #offloadCpu, #diffusionFa, #flowShift').forEach(el => {
             el.disabled = serverModeActive;
             el.style.opacity = serverModeActive ? '0.5' : '1';
         });
