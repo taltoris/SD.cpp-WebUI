@@ -884,7 +884,6 @@ params.guidance = parseFloat(elements.guidance.value);
 return params;
 }
 
-
 // Generate image - FIXED VERSION
 async function generateImage() {
     var prompt = elements.prompt ? elements.prompt.value.trim() : '';
@@ -901,13 +900,10 @@ async function generateImage() {
     if (elements.loadingIndicator) elements.loadingIndicator.classList.add('active');
     if (elements.outputContainer) elements.outputContainer.innerHTML = '';
 
-    // *** Set server status to "Busy" with orange dot ***
     console.log('=== GENERATION STARTING ===');
     setServerBusyStatus(true);
-    console.log('isGenerating is now:', isGenerating);
 
     var params = buildGenerationParams();
-
     console.log('Generating image with params:', params);
 
     try {
@@ -926,7 +922,6 @@ async function generateImage() {
             if (uploadResponse.ok && uploadData.path) {
                 params.init_img = uploadData.path;
 
-                // Add strength
                 var txt2imgStrength = document.getElementById('txt2imgStrength');
                 if (txt2imgStrength) {
                     params.strength = parseFloat(txt2imgStrength.value);
@@ -945,7 +940,7 @@ async function generateImage() {
 
         console.log('Using endpoint:', endpoint);
 
-        // *** FIX 1: Increase timeout significantly for long-running operations ***
+        // Increase timeout significantly for long-running operations
         var controller = new AbortController();
         var timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes timeout
 
@@ -958,7 +953,10 @@ async function generateImage() {
 
         clearTimeout(timeoutId);
 
-        // *** FIX 2: Better error handling - check if response is valid JSON ***
+        // FIX: Clone BEFORE reading the response
+        var responseClone = response.clone();
+        
+        // Try to parse JSON
         var data;
         try {
             data = await response.json();
@@ -967,10 +965,13 @@ async function generateImage() {
             console.error('JSON parse error:', jsonError);
             console.log('Response status:', response.status);
             
-            // Try to get response text for debugging
-            var responseClone = response.clone();
-            var responseText = await responseClone.text();
-            console.log('Response text (first 500 chars):', responseText.substring(0, 500));
+            // Now we can safely read from the clone
+            try {
+                var responseText = await responseClone.text();
+                console.log('Response text (first 500 chars):', responseText.substring(0, 500));
+            } catch (cloneError) {
+                console.error('Could not read response text:', cloneError);
+            }
             
             // If generation might still be running, poll for results
             showMessage('Generation started but response was invalid. Checking gallery...', 'info');
@@ -982,7 +983,6 @@ async function generateImage() {
                 var galleryData = await galleryResponse.json();
                 
                 if (galleryData.files && galleryData.files.length > 0) {
-                    // Get most recent file
                     var latestFile = galleryData.files[0];
                     
                     var img = document.createElement('img');
@@ -1002,10 +1002,10 @@ async function generateImage() {
                 }
             }, 2000);
             
-            return; // Exit early
+            return;
         }
 
-        // *** FIX 3: Handle successful generation ***
+        // Handle successful generation
         if (response.ok && (data.status === 'success' || data.image)) {
             console.log('Generation successful! Response data:', data);
             var img = document.createElement('img');
@@ -1035,7 +1035,7 @@ async function generateImage() {
             }
         }
     } catch (error) {
-        // *** FIX 4: Distinguish between timeout and actual errors ***
+        // Distinguish between timeout and actual errors
         if (error.name === 'AbortError') {
             showMessage('Generation timed out. Check gallery for results...', 'warning');
             
@@ -1053,13 +1053,11 @@ async function generateImage() {
         if (elements.generateBtn) elements.generateBtn.disabled = false;
         if (elements.loadingIndicator) elements.loadingIndicator.classList.remove('active');
         
-        // *** Clear busy status ***
         console.log('=== GENERATION COMPLETE ===');
-        console.log('isGenerating before clear:', isGenerating);
         setServerBusyStatus(false);
-        console.log('isGenerating after clear:', isGenerating);
     }
 }
+
 
 // *** NEW: Set server busy status ***
 function setServerBusyStatus(isBusy) {
