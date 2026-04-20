@@ -788,7 +788,7 @@ def list_outputs():
             ext = filename.lower().split('.')[-1]
 
             # Check for both images and videos
-            if ext in ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'avi', 'mov', 'webm']:
+            if ext in ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'avi', 'mov', 'webm', 'svg']:
                 file_type = 'video' if ext in ['mp4', 'avi', 'mov', 'webm'] else 'image'
                 files.append({
                     'name': filename,
