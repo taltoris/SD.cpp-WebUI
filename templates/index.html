@@ -235,6 +235,39 @@
 <div class="info-text">How much to transform the init image (0 = keep original, 1 = ignore original)</div>
 </div>
 
+<!-- Vectorize Section -->
+<div class="section" id="vectorizeSection">
+<div class="section-title">Vectorize Output</div>
+
+<div class="form-group">
+<div class="checkbox-group">
+<input type="checkbox" id="vectorize">
+<label for="vectorize">Enable vectorized SVG output</label>
+</div>
+</div>
+
+<div class="form-group" id="vectorizeOptions" style="display: none;">
+<div class="row">
+<div class="form-group">
+<label for="numColors">Num Colors/Levels</label>
+<input type="number" id="numColors" min="2" max="20" value="8">
+</div>
+<div class="form-group">
+<label for="smoothness">Smoothness</label>
+<input type="range" id="smoothness" min="0" max="100" value="50">
+<div class="info-text">Higher = smoother contours</div>
+</div>
+</div>
+
+<div class="form-group">
+<div class="checkbox-group">
+<input type="checkbox" id="asStroke">
+<label for="asStroke">Use stroke instead of fill</label>
+</div>
+</div>
+</div>
+</div>
+
 <div class="form-group">
 <button class="btn btn-primary" id="generateBtn">Generate</button>
 </div>

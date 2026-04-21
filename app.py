@@ -377,6 +377,21 @@ def generate():
         guidance = float(data['guidance'])
         init_img = data.get('init_img')
         strength = float(data.get('strength', 0.75)) if data.get('strength') else None
+        
+        # Vectorize options
+        vectorize_enabled = data.get('vectorize', False)
+        num_colors = int(data.get('num_colors', 8))
+        as_stroke = data.get('as_stroke', False)
+        smoothness = data.get('smoothness', 0.5)
+        if isinstance(smoothness, int) and smoothness > 1:
+            smoothness = smoothness / 100.0
+        color_match = data.get('color_match', True)
+        svg_width = int(data.get('svg_width', width))
+        svg_height = int(data.get('svg_height', height))
+        min_blob_area = int(data.get('min_blob_area', 80))
+        simplify_epsilon = float(data.get('simplify_epsilon', 1.5))
+        depth_mode = data.get('depth_mode', 'y')
+        kmeans_n_init = int(data.get('kmeans_n_init', 3))
     except (ValueError, TypeError) as e:
         is_generating = False  # *** RESET FLAG ON ERROR ***
         return jsonify({'status': 'error', 'message': f'Invalid parameter type: {str(e)}'}), 400
@@ -418,11 +433,42 @@ def generate():
             )
 
         if success:
-            return jsonify({
+            # Vectorize if enabled
+            svg_filename = None
+            if vectorize_enabled:
+                try:
+                    import sys
+                    sys.path.insert(0, BASE_DIR)
+                    from vectorize import raster_to_contour_svg
+                    svg_filename = os.path.splitext(output_filename)[0] + '.svg'
+                    svg_path = os.path.join(OUTPUT_DIR, svg_filename)
+                    
+                    raster_to_contour_svg(
+                        png_path=output_path,
+                        svg_path=svg_path,
+                        n_levels=num_colors,
+                        as_stroke=as_stroke,
+                        smoothness=smoothness,
+                        color_match=color_match,
+                        svg_width=svg_width,
+                        svg_height=svg_height,
+                        min_blob_area=min_blob_area,
+                        simplify_epsilon=simplify_epsilon,
+                        depth_mode=depth_mode,
+                        kmeans_n_init=kmeans_n_init,
+                    )
+                    logger.info(f"Vectorized output saved to: {svg_path}")
+                except Exception as vec_error:
+                    logger.error(f"Vectorization failed: {vec_error}")
+            
+            response = {
                 'status': 'success',
                 'output': output_filename,
                 'message': 'Image generated successfully'
-            })
+            }
+            if svg_filename:
+                response['svg_output'] = svg_filename
+            return jsonify(response)
         else:
             return jsonify({
                 'status': 'error',
@@ -808,6 +854,60 @@ def list_outputs():
 def serve_output(filename):
     """Serve generated images"""
     return send_from_directory(OUTPUT_DIR, filename)
+
+@app.route('/vectorize', methods=['POST'])
+def vectorize():
+    """Convert a PNG to SVG using contour-based vectorization"""
+    data = request.json
+
+    png_path = data.get('png_path')
+    if not png_path:
+        return jsonify({'error': 'png_path required'}), 400
+
+    n_levels = int(data.get('n_levels', 6))
+    as_stroke = data.get('as_stroke', False)
+    smoothness = data.get('smoothness', 0.5)
+    color_match = data.get('color_match', True)
+    svg_width = int(data.get('svg_width', 512))
+    svg_height = int(data.get('svg_height', 512))
+    min_blob_area = int(data.get('min_blob_area', 80))
+    simplify_epsilon = float(data.get('simplify_epsilon', 1.5))
+    depth_mode = data.get('depth_mode', 'y')
+    kmeans_n_init = int(data.get('kmeans_n_init', 3))
+
+    try:
+        import sys
+        sys.path.insert(0, BASE_DIR)
+        from vectorize import raster_to_contour_svg
+
+        png_filename = os.path.basename(png_path)
+        svg_filename = os.path.splitext(png_filename)[0] + '.svg'
+        svg_path = os.path.join(OUTPUT_DIR, svg_filename)
+
+        raster_to_contour_svg(
+            png_path=png_path,
+            svg_path=svg_path,
+            n_levels=n_levels,
+            as_stroke=as_stroke,
+            smoothness=smoothness,
+            color_match=color_match,
+            svg_width=svg_width,
+            svg_height=svg_height,
+            min_blob_area=min_blob_area,
+            simplify_epsilon=simplify_epsilon,
+            depth_mode=depth_mode,
+            kmeans_n_init=kmeans_n_init,
+        )
+
+        return jsonify({
+            'success': True,
+            'svg_path': svg_filename,
+            'message': 'Vectorization successful'
+        })
+
+    except Exception as e:
+        logger.error(f"Vectorization failed: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/server_log')
 def server_log():

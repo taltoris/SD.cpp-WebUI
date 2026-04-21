@@ -1,3 +1,8 @@
 flask==3.0.0
-requests==2.31.0
+requests
 Pillow
+scipy
+scikit-image
+opencv-python
+svgwrite
+scikit-learn

@@ -620,6 +620,28 @@ txt2imgStrengthValue.textContent = this.value;
 });
 }
 
+// Vectorize options visibility
+var vectorizeCheckbox = document.getElementById('vectorize');
+var vectorizeOptions = document.getElementById('vectorizeOptions');
+
+if (vectorizeCheckbox && vectorizeOptions) {
+vectorizeCheckbox.addEventListener('change', function() {
+if (this.checked) {
+vectorizeOptions.style.display = 'block';
+} else {
+vectorizeOptions.style.display = 'none';
+}
+});
+}
+
+// Smoothness slider update
+var smoothnessSlider = document.getElementById('smoothness');
+if (smoothnessSlider) {
+smoothnessSlider.addEventListener('input', function() {
+// Could add a value display if needed
+});
+}
+
 // Model loading
 if (elements.loadModelBtn) {
 elements.loadModelBtn.addEventListener('click', loadModel);
@@ -879,6 +901,15 @@ scheduler: elements.scheduler ? elements.scheduler.value : 'normal'
 var modelConfig = config[currentModelType];
 if (modelConfig && modelConfig.defaults && modelConfig.defaults.showGuidance && elements.guidance) {
 params.guidance = parseFloat(elements.guidance.value);
+}
+
+// Vectorize options
+var vectorizeCheckbox = document.getElementById('vectorize');
+if (vectorizeCheckbox && vectorizeCheckbox.checked) {
+params.vectorize = true;
+params.num_colors = parseInt(document.getElementById('numColors').value) || 8;
+params.as_stroke = document.getElementById('asStroke').checked;
+params.smoothness = parseInt(document.getElementById('smoothness').value) || 50;
 }
 
 return params;
