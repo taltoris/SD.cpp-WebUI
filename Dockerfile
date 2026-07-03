@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libopenblas-dev \
     libomp-dev \
+    libglib2.0-0 \
     wget \
     && rm -rf /var/lib/apt/lists/*
 

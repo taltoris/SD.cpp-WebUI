@@ -385,6 +385,7 @@ def generate():
         smoothness = data.get('smoothness', 0.5)
         if isinstance(smoothness, int) and smoothness > 1:
             smoothness = smoothness / 100.0
+        no_blur = data.get('no_blur', False)
         color_match = data.get('color_match', True)
         svg_width = int(data.get('svg_width', width))
         svg_height = int(data.get('svg_height', height))
@@ -444,19 +445,20 @@ def generate():
                     svg_path = os.path.join(OUTPUT_DIR, svg_filename)
                     
                     raster_to_contour_svg(
-                        png_path=output_path,
-                        svg_path=svg_path,
-                        n_levels=num_colors,
-                        as_stroke=as_stroke,
-                        smoothness=smoothness,
-                        color_match=color_match,
-                        svg_width=svg_width,
-                        svg_height=svg_height,
-                        min_blob_area=min_blob_area,
-                        simplify_epsilon=simplify_epsilon,
-                        depth_mode=depth_mode,
-                        kmeans_n_init=kmeans_n_init,
-                    )
+                         png_path=output_path,
+                         svg_path=svg_path,
+                         n_levels=num_colors,
+                         as_stroke=as_stroke,
+                         smoothness=smoothness,
+                         color_match=color_match,
+                         svg_width=svg_width,
+                         svg_height=svg_height,
+                         min_blob_area=min_blob_area,
+                         simplify_epsilon=simplify_epsilon,
+                         depth_mode=depth_mode,
+                         kmeans_n_init=kmeans_n_init,
+                         no_blur=no_blur,
+                     )
                     logger.info(f"Vectorized output saved to: {svg_path}")
                 except Exception as vec_error:
                     logger.error(f"Vectorization failed: {vec_error}")

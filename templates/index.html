@@ -252,11 +252,35 @@
 <label for="numColors">Num Colors/Levels</label>
 <input type="number" id="numColors" min="2" max="20" value="8">
 </div>
-<div class="form-group">
-<label for="smoothness">Smoothness</label>
-<input type="range" id="smoothness" min="0" max="100" value="50">
-<div class="info-text">Higher = smoother contours</div>
 </div>
+
+<div class="form-group">
+<div class="checkbox-group">
+<input type="checkbox" id="useBlur">
+<label for="useBlur">Apply blur</label>
+</div>
+</div>
+
+<div class="form-group" id="blurOptions" style="display: none;">
+<div class="row">
+<div class="form-group">
+<label for="blurAmount">Blur</label>
+<input type="range" id="blurAmount" min="0" max="100" value="50">
+<div class="info-text">Higher = more blur</div>
+</div>
+</div>
+</div>
+
+<div class="form-group">
+<label for="simplifyEpsilon">Simplify Epsilon</label>
+<input type="range" id="simplifyEpsilon" min="0.1" max="5" step="0.1" value="1.5">
+<div class="info-text">Higher = fewer, smoother path points</div>
+</div>
+
+<div class="form-group">
+<label for="minBlobArea">Min Blob Area</label>
+<input type="range" id="minBlobArea" min="0" max="500" step="1" value="80">
+<div class="info-text">Higher = removes more speckling/noise</div>
 </div>
 
 <div class="form-group">
