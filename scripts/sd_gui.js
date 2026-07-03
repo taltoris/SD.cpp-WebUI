@@ -634,11 +634,17 @@ vectorizeOptions.style.display = 'none';
 });
 }
 
-// Smoothness slider update
-var smoothnessSlider = document.getElementById('smoothness');
-if (smoothnessSlider) {
-smoothnessSlider.addEventListener('input', function() {
-// Could add a value display if needed
+// Blur toggle and slider visibility
+var useBlurCheckbox = document.getElementById('useBlur');
+var blurOptionsDiv = document.getElementById('blurOptions');
+
+if (useBlurCheckbox && blurOptionsDiv) {
+useBlurCheckbox.addEventListener('change', function() {
+if (this.checked) {
+blurOptionsDiv.style.display = 'block';
+} else {
+blurOptionsDiv.style.display = 'none';
+}
 });
 }
 
@@ -909,7 +915,21 @@ if (vectorizeCheckbox && vectorizeCheckbox.checked) {
 params.vectorize = true;
 params.num_colors = parseInt(document.getElementById('numColors').value) || 8;
 params.as_stroke = document.getElementById('asStroke').checked;
-params.smoothness = parseInt(document.getElementById('smoothness').value) || 50;
+var useBlurCheckbox = document.getElementById('useBlur');
+params.no_blur = !(useBlurCheckbox && useBlurCheckbox.checked);
+if (useBlurCheckbox && useBlurCheckbox.checked) {
+    params.smoothness = parseInt(document.getElementById('blurAmount').value) || 50;
+} else {
+    params.smoothness = 0;
+}
+var simplifyEpsilonSlider = document.getElementById('simplifyEpsilon');
+if (simplifyEpsilonSlider) {
+    params.simplify_epsilon = parseFloat(simplifyEpsilonSlider.value) || 1.5;
+}
+var minBlobAreaSlider = document.getElementById('minBlobArea');
+if (minBlobAreaSlider) {
+    params.min_blob_area = parseInt(minBlobAreaSlider.value) || 80;
+}
 }
 
 return params;

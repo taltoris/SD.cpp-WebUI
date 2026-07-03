@@ -11,18 +11,18 @@ services:
       - ./:/app/
       - /home/taltoris/sandbox/stable-diffusion.cpp/build/bin/:/usr/local/bin/
       - /home/taltoris/sandbox/stable-diffusion.cpp/models:/app/models:ro
-      - /home/taltoris/sandbox//stable-diffusion.cpp/output:/app/output
-      - /dev/urandom:/dev/urandom:ro  # Boost entropy: mount host urandom as container random
+      - /home/taltoris/sandbox/stable-diffusion.cpp/output:/app/output
+      - /dev/urandom:/dev/urandom:ro
     environment:
       - FLASK_ENV=development
-      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_VISIBLE_DEVICES=1                     # expose only GPU 1
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              device_ids: ['0']                       # only GPU 1
               capabilities: [gpu]
     runtime: nvidia
     command: python app.py

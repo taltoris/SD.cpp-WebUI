@@ -216,8 +216,7 @@ def load_model():
         cmd.append('--diffusion-fa')
     if data.get('flow_shift'):
         cmd.extend(['--flow-shift', str(data['flow_shift'])])
-    if data.get('lora_model_dir'):
-        cmd.extend(['--lora-model-dir', data['lora_model_dir']])
+    cmd.extend(['--lora-model-dir', './models/lora'])
     if data.get('embd_dir'):
         cmd.extend(['--embd-dir', data['embd_dir']])
     if data.get('threads'):
@@ -385,6 +384,7 @@ def generate():
         smoothness = data.get('smoothness', 0.5)
         if isinstance(smoothness, int) and smoothness > 1:
             smoothness = smoothness / 100.0
+        no_blur = data.get('no_blur', False)
         color_match = data.get('color_match', True)
         svg_width = int(data.get('svg_width', width))
         svg_height = int(data.get('svg_height', height))
@@ -444,19 +444,20 @@ def generate():
                     svg_path = os.path.join(OUTPUT_DIR, svg_filename)
                     
                     raster_to_contour_svg(
-                        png_path=output_path,
-                        svg_path=svg_path,
-                        n_levels=num_colors,
-                        as_stroke=as_stroke,
-                        smoothness=smoothness,
-                        color_match=color_match,
-                        svg_width=svg_width,
-                        svg_height=svg_height,
-                        min_blob_area=min_blob_area,
-                        simplify_epsilon=simplify_epsilon,
-                        depth_mode=depth_mode,
-                        kmeans_n_init=kmeans_n_init,
-                    )
+                         png_path=output_path,
+                         svg_path=svg_path,
+                         n_levels=num_colors,
+                         as_stroke=as_stroke,
+                         smoothness=smoothness,
+                         color_match=color_match,
+                         svg_width=svg_width,
+                         svg_height=svg_height,
+                         min_blob_area=min_blob_area,
+                         simplify_epsilon=simplify_epsilon,
+                         depth_mode=depth_mode,
+                         kmeans_n_init=kmeans_n_init,
+                         no_blur=no_blur,
+                     )
                     logger.info(f"Vectorized output saved to: {svg_path}")
                 except Exception as vec_error:
                     logger.error(f"Vectorization failed: {vec_error}")
@@ -695,6 +696,7 @@ def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, s
     cmd.extend(['--sampling-method', sampler])
     cmd.extend(['--scheduler', scheduler])
     cmd.extend(['--guidance', str(guidance)])
+    cmd.extend(['--lora-model-dir', './models/lora'])
 
     if negative_prompt:
         cmd.extend(['--negative-prompt', negative_prompt])

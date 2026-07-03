@@ -3,6 +3,6 @@ requests
 Pillow
 scipy
 scikit-image
-opencv-python
+opencv-python-headless
 svgwrite
 scikit-learn

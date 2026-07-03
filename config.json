@@ -122,6 +122,54 @@
       "enable_negative_prompt": true
     }
   },
+    "krea2": {
+    "name": "Krea2",
+    "description": "Krea2 models with LLM integration",
+    "models": {
+      "diffusion": "Krea-2-Raw-Q8_0.gguf",
+      "llm": "Qwen3-VL-4B-Instruct-Q4_K_M.gguf",
+      "vae": "wan_2.1_vae.safetensors"
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 2.5,
+      "guidance": 3.5,
+      "steps": 20,
+      "scheduler": "sgm_uniform",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "showGuidance": true
+    },
+    "params": {
+      "enable_CFG": true,
+      "enable_negative_prompt": true
+    }
+  },
+  "krea2_turbo": {
+    "name": "Krea2 Turbo",
+    "description": "Krea2 Turbo models with improved speed and LLM integration",
+    "models": {
+      "diffusion": "Krea-2-Turbo-Q4_K_S.gguf",
+      "llm": "Qwen3-VL-4B-Instruct-Q4_K_M.gguf",
+      "vae": "wan_2.1_vae.safetensors"
+    },
+    "defaults": {
+      "sampler": "euler",
+      "CFG_scale": 2.5,
+      "guidance": 3.5,
+      "steps": 20,
+      "scheduler": "sgm_uniform",
+      "VAE_tiling": true,
+      "Offload-to-CPU": true,
+      "FA": true,
+      "showGuidance": true
+    },
+    "params": {
+      "enable_CFG": true,
+      "enable_negative_prompt": true
+    }
+  },
   "wan": {
     "name": "Wan",
     "description": "Wan models for video and image generation",
