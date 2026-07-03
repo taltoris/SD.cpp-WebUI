@@ -216,8 +216,7 @@ def load_model():
         cmd.append('--diffusion-fa')
     if data.get('flow_shift'):
         cmd.extend(['--flow-shift', str(data['flow_shift'])])
-    if data.get('lora_model_dir'):
-        cmd.extend(['--lora-model-dir', data['lora_model_dir']])
+    cmd.extend(['--lora-model-dir', './models/lora'])
     if data.get('embd_dir'):
         cmd.extend(['--embd-dir', data['embd_dir']])
     if data.get('threads'):
@@ -697,6 +696,7 @@ def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, s
     cmd.extend(['--sampling-method', sampler])
     cmd.extend(['--scheduler', scheduler])
     cmd.extend(['--guidance', str(guidance)])
+    cmd.extend(['--lora-model-dir', './models/lora'])
 
     if negative_prompt:
         cmd.extend(['--negative-prompt', negative_prompt])

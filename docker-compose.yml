@@ -9,9 +9,15 @@ services:
       - "8080:8080"
     volumes:
       - ./:/app/
+<<<<<<< HEAD
       - /home/taltoris/Documents/docker/stable-diffusion.cpp/build/bin/:/usr/local/bin/
       - /home/taltoris/Documents/docker/stable-diffusion.cpp/models:/app/models:ro
       - /home/taltoris/Documents/docker/stable-diffusion.cpp/output:/app/output
+=======
+      - /home/taltoris/sandbox/stable-diffusion.cpp/build/bin/:/usr/local/bin/
+      - /home/taltoris/sandbox/stable-diffusion.cpp/models:/app/models:ro
+      - /home/taltoris/sandbox/stable-diffusion.cpp/output:/app/output
+>>>>>>> origin/main
       - /dev/urandom:/dev/urandom:ro
     environment:
       - FLASK_ENV=development
@@ -22,6 +28,10 @@ services:
         reservations:
           devices:
             - driver: nvidia
+<<<<<<< HEAD
+=======
+              device_ids: ['0']                       # only GPU 1
+>>>>>>> origin/main
               capabilities: [gpu]
     runtime: nvidia
     command: python app.py

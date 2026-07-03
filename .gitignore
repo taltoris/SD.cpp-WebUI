@@ -1,2 +1,4 @@
 models/
 output/
+__pychace__/
+*.pyc
