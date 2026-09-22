@@ -1,39 +1,32 @@
 services:
   sd_container:
     container_name: sd_container
+
     build:
       context: .
       dockerfile: Dockerfile
+
     ports:
       - "5000:5000"
       - "8080:8080"
+
     volumes:
       - ./:/app/
-<<<<<<< HEAD
-      - /home/taltoris/Documents/docker/stable-diffusion.cpp/build/bin/:/usr/local/bin/
+      - /home/taltoris/Documents/docker/stable-diffusion.cpp/build/bin:/usr/local/bin:ro
       - /home/taltoris/Documents/docker/stable-diffusion.cpp/models:/app/models:ro
       - /home/taltoris/Documents/docker/stable-diffusion.cpp/output:/app/output
-=======
-      - /home/taltoris/sandbox/stable-diffusion.cpp/build/bin/:/usr/local/bin/
-      - /home/taltoris/sandbox/stable-diffusion.cpp/models:/app/models:ro
-      - /home/taltoris/sandbox/stable-diffusion.cpp/output:/app/output
->>>>>>> origin/main
-      - /dev/urandom:/dev/urandom:ro
+
+    devices:
+      - /dev/dri:/dev/dri
+
+    group_add:
+      - "44"   # video
+      - "110"  # render
+
     environment:
-      - FLASK_ENV=development
-      - NVIDIA_VISIBLE_DEVICES=1                     # expose only GPU 1
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-<<<<<<< HEAD
-=======
-              device_ids: ['0']                       # only GPU 1
->>>>>>> origin/main
-              capabilities: [gpu]
-    runtime: nvidia
+      FLASK_ENV: development
+      LD_LIBRARY_PATH: /usr/local/bin
+
     command: python app.py
 
 volumes:

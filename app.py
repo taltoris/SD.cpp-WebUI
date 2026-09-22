@@ -501,7 +501,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             "width": width,              # ← Include dimensions here too
             "height": height,            # ← Include dimensions here too
             "steps": steps,
-            "cfg_scale": cfg_scale,
+            "cfg-scale": cfg_scale,
             "sampler": sampler,
             "scheduler": scheduler,
             "guidance": guidance,
@@ -510,7 +510,9 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         }
         
         if negative_prompt and negative_prompt.strip():
-            extra_args["negative_prompt"] = negative_prompt
+            extra_args["negative-prompt"] = negative_prompt
+        if init_img is not None:
+            extra_args['init-image'] = init_img
         
         # Embed extra args in the prompt using the expected format
         prompt_with_args = f"{prompt}<sd_cpp_extra_args>{json.dumps(extra_args)}</sd_cpp_extra_args>"
@@ -725,7 +727,7 @@ def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, s
     if model_args.get('diffusion_fa'):
         cmd.append('--diffusion-fa')
 
-    logger.info(f"Running CLI generation: {' '.join(cmd[:5])}... (truncated)")
+    logger.info(f"Running CLI generation: {' '.join(cmd[:])}")
     logger.debug(f"Full CLI command: {' '.join(cmd)}")
 
     try:
