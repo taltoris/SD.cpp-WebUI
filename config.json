@@ -122,46 +122,11 @@
       "enable_negative_prompt": true
     }
   },
-    "krea2": {
-    "name": "Krea2",
-    "description": "Krea2 models with LLM integration",
-    "models": {
-<<<<<<< HEAD
-      "diffusion": "Krea-2-Turbo-Q3_K_M.gguf",
-      "llm": "Qwen3VL-4B-Instruct-Q4_K_M.gguf",
-=======
-      "diffusion": "Krea-2-Raw-Q8_0.gguf",
-      "llm": "Qwen3-VL-4B-Instruct-Q4_K_M.gguf",
->>>>>>> origin/main
-      "vae": "wan_2.1_vae.safetensors"
-    },
-    "defaults": {
-      "sampler": "euler",
-      "CFG_scale": 2.5,
-      "guidance": 3.5,
-      "steps": 20,
-      "scheduler": "sgm_uniform",
-      "VAE_tiling": true,
-      "Offload-to-CPU": true,
-      "FA": true,
-      "showGuidance": true
-    },
-    "params": {
-      "enable_CFG": true,
-      "enable_negative_prompt": true
-    }
-  },
-  "krea2_turbo": {
-    "name": "Krea2 Turbo",
+  "Krea2 Turbo":{
     "description": "Krea2 Turbo models with improved speed and LLM integration",
     "models": {
-<<<<<<< HEAD
       "diffusion": "Krea-2-Turbo-Q3_K_M.gguf",
       "llm": "Qwen3VL-4B-Instruct-Q4_K_M.gguf",
-=======
-      "diffusion": "Krea-2-Turbo-Q4_K_S.gguf",
-      "llm": "Qwen3-VL-4B-Instruct-Q4_K_M.gguf",
->>>>>>> origin/main
       "vae": "wan_2.1_vae.safetensors"
     },
     "defaults": {
@@ -207,6 +172,31 @@
       "enable_CFG": true,
       "enable_negative_prompt": true
     }
+  },
+  "qwen_image_2.1": {
+     "name": "Qwen IMG 2.1",
+     "description": "Just getting started",
+     "models": {
+       "diffusion": "qwen_image_2.1-Q6_K.gguf",
+       "llm": "Qwen3VL-8B-Instruct-Q4_K_M.gguf",
+       "llm_vision":"mmproj-Qwen3VL-8B-Instruct-F16.gguf",
+       "vae": "qwen_image_2.1_vae_bf16.safetensors"
+     },
+     "defaults": {
+       "sampler": "euler",
+       "CFG_scale": 2.5,
+       "guidance": 3.5,
+       "steps": 20,
+       "scheduler": "sgm_uniform",
+       "VAE_tiling": true,
+       "Offload-to-CPU": true,
+       "FA": true,
+       "showGuidance": true
+     },
+     "params": {
+       "enable_CFG": true,
+       "enable_negative_prompt": true
+     }
   },
   "all": {
     "defaults": {
@@ -267,4 +257,5 @@
     ]
   }
 }
+
 
