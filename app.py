@@ -375,8 +375,8 @@ def generate():
     if not data:
         return jsonify({'status': 'error', 'message': 'No data provided'}), 400
 
-    # Validate required parameters
-    required_params = ['prompt', 'height', 'width', 'steps', 'cfg_scale', 'seed', 'sampler', 'scheduler', 'guidance']
+    # Validate required parameters (guidance is optional - defaults to 3.5 for distilled models)
+    required_params = ['prompt', 'height', 'width', 'steps', 'cfg_scale', 'seed', 'sampler', 'scheduler']
     for param in required_params:
         if param not in data:
             return jsonify({'status': 'error', 'message': f'Missing required parameter: {param}'}), 400
@@ -394,7 +394,7 @@ def generate():
         sampler = str(data['sampler'])
         scheduler = str(data['scheduler'])
         seed = int(data['seed'])
-        guidance = float(data['guidance'])
+        guidance = float(data.get('guidance', 3.5))
         init_img = data.get('init_img')
         strength = float(data.get('strength', 0.75)) if data.get('strength') else None
         

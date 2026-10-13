@@ -216,7 +216,7 @@
        "VAE_tiling": true,
        "Offload-to-CPU": true,
        "FA": true,
-       "showGuidance": false
+       "showGuidance": true
      },
      "params": {
        "enable_CFG": true,
