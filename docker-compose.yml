@@ -8,6 +8,7 @@ services:
 
     ports:
       - "5000:5000"
+<<<<<<< HEAD
       - "8080:8080"
 
     volumes:
@@ -27,6 +28,25 @@ services:
       FLASK_ENV: development
       LD_LIBRARY_PATH: /usr/local/bin
 
+=======
+      - "8081:8080"
+    volumes:
+      - ./:/app/
+      - ../stable-diffusion.cpp/build/bin/:/usr/local/bin/
+      - ../stable-diffusion.cpp/models:/app/models:ro
+      - ../stable-diffusion.cpp/output:/app/output
+    environment:
+      - FLASK_ENV=development
+      - NVIDIA_VISIBLE_DEVICES=1                     # expose only GPU 1
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    runtime: nvidia
+>>>>>>> refs/remotes/origin/main
     command: python app.py
 
 volumes:
