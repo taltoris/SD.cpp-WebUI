@@ -179,7 +179,7 @@
      "models": {
        "diffusion": "qwen_image_2.1-Q6_K.gguf",
        "llm": "Qwen3VL-8B-Instruct-Q4_K_M.gguf",
-       "llm-vision":"mmproj-Qwen3VL-8B-Instruct-F16.gguf",
+       "llm_vision":"mmproj-Qwen3VL-8B-Instruct-F16.gguf",
        "vae": "qwen_image_2.1_vae_bf16.safetensors"
      },
      "defaults": {

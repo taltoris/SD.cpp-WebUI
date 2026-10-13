@@ -8,7 +8,8 @@ diffusion: [],
 vae: [],
 llm: [],
 clip: [],
-t5: []
+t5: [],
+llm_vision: []
 };
 
 // DOM Elements cache
@@ -439,6 +440,11 @@ if (vaeModel !== undefined) {
 html += createModelSelectHTML('vaeModel', 'VAE Model', vaeModel, false);
 }
 
+// LLM Vision model (Qwen 2.1 / Qwen3-VL)
+if (models.llm_vision !== undefined) {
+    html += createModelSelectHTML('llmVisionModel', 'LLM Vision Model (mmproj)', models.llm_vision, false);
+}
+
 elements.modelConfigSection.innerHTML = html;
 
 // Now populate the dropdowns with actual files
@@ -475,6 +481,7 @@ modelFiles.vae = data.vae || [];
 modelFiles.llm = data.llm || [];
 modelFiles.clip = data.clip || [];
 modelFiles.t5 = data.t5 || [];
+modelFiles.llm_vision = data.llm_vision || [];
 
 populateModelDropdowns();
 } catch (error) {
@@ -495,6 +502,7 @@ populateModelSelect('clipLModel', modelFiles.clip, defaultModels.clip_l);
 populateModelSelect('clipGModel', modelFiles.clip, defaultModels.clip_g);
 populateModelSelect('t5xxlModel', modelFiles.t5, defaultModels.t5xxl);
 populateModelSelect('vaeModel', modelFiles.vae, defaultModels.vae || defaultModels.vae_model);
+populateModelSelect('llmVisionModel', modelFiles.llm_vision, defaultModels.llm_vision);
 }
 
 // Populate a single model select dropdown
@@ -803,7 +811,8 @@ var clipLModel = document.getElementById('clipLModel');
 var clipGModel = document.getElementById('clipGModel');
 var t5xxlModel = document.getElementById('t5xxlModel');
 var vaeModel = document.getElementById('vaeModel');
-
+var llmVisionModel = document.getElementById('llmVisionModel');
+if (llmVisionModel && llmVisionModel.value) args.llm_vision = llmVisionModel.value;
 if (diffusionModel && diffusionModel.value) args.diffusion_model = diffusionModel.value;
 if (llmModel && llmModel.value) args.llm = llmModel.value;
 if (clipLModel && clipLModel.value) args.clip_l = clipLModel.value;

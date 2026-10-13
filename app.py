@@ -28,6 +28,7 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
 DIFFUSION_MODELS_DIR = os.path.join(MODELS_DIR, 'diffusion')
 VAE_MODELS_DIR = os.path.join(MODELS_DIR, 'vae')
 LLM_MODELS_DIR = os.path.join(MODELS_DIR, 'llm')
+LLM_VISION_MODELS_DIR = os.path.join(MODELS_DIR, 'llm')
 CLIP_MODELS_DIR = os.path.join(MODELS_DIR, 'clip')
 T5_MODELS_DIR = os.path.join(MODELS_DIR, 't5')
 LORA_MODELS_DIR = os.path.join(MODELS_DIR, 'loras')
@@ -110,6 +111,7 @@ def list_models():
         'diffusion': list_model_files(DIFFUSION_MODELS_DIR),
         'vae': list_model_files(VAE_MODELS_DIR),
         'llm': list_model_files(LLM_MODELS_DIR),
+        'llm_vision': list_model_files(LLM_MODELS_DIR),
         'clip': list_model_files(CLIP_MODELS_DIR),
         't5': list_model_files(T5_MODELS_DIR),
         'lora': list_model_files(LORA_MODELS_DIR),
@@ -206,6 +208,8 @@ def load_model():
         cmd.extend(['--t5xxl', data['t5xxl']])
     if data.get('llm'):
         cmd.extend(['--llm', data['llm']])
+    if data.get('llm_vision'):
+        cmd.extend(['--llm_vision', data['llm_vision']])
 
     # Add options
     if data.get('vae_tiling'):
@@ -512,7 +516,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         if negative_prompt and negative_prompt.strip():
             extra_args["negative-prompt"] = negative_prompt
         if init_img is not None:
-            extra_args['init-image'] = init_img
+            extra_args['ref-image'] = init_img
         
         # Embed extra args in the prompt using the expected format
         prompt_with_args = f"{prompt}<sd_cpp_extra_args>{json.dumps(extra_args)}</sd_cpp_extra_args>"
@@ -597,7 +601,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             "width": width,
             "height": height,
             "steps": steps,
-            "cfg_scale": cfg_scale,
+            "cfg-scale": cfg_scale,
             "sampler": sampler,
             "scheduler": scheduler,
             "guidance": guidance,
@@ -605,7 +609,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
         }
         
         if negative_prompt and negative_prompt.strip():
-            extra_args["negative_prompt"] = negative_prompt
+            extra_args["negative-prompt"] = negative_prompt
         
         prompt_with_args = f"{prompt}<sd_cpp_extra_args>{json.dumps(extra_args)}</sd_cpp_extra_args>"
         
@@ -703,11 +707,16 @@ def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, s
     if negative_prompt:
         cmd.extend(['--negative-prompt', negative_prompt])
 
-    # Add init image if provided
+    # Add init image / reference image
     if init_img:
-        cmd.extend(['--init-img', init_img])
-        if strength is not None:
-            cmd.extend(['--strength', str(strength)])
+        if model_args.get('llm_vision'):
+            # Qwen Image 2.1 editing mode: reference image (-r, Kontext-style)
+            cmd.extend(['-r', init_img])
+        else:
+            # Standard img2img mode
+            cmd.extend(['--init-img', init_img])
+            if strength is not None:
+                cmd.extend(['--strength', str(strength)])
 
     # Add optional models
     if model_args.get('vae'):
@@ -720,7 +729,9 @@ def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, s
         cmd.extend(['--t5xxl', model_args['t5xxl']])
     if model_args.get('llm'):
         cmd.extend(['--llm', model_args['llm']])
-
+    if model_args.get('llm_vision'):
+        cmd.extend(['--llm_vision', model_args['llm_vision']])
+    
     # Add options
     if model_args.get('vae_tiling'):
         cmd.append('--vae-tiling')
@@ -794,7 +805,7 @@ def generate_video():
 
         # Add init image if provided
         if data.get('init_image'):
-            payload['init_img'] = data.get('init_image')
+            payload['ref_img'] = data.get('init_image')
 
         # Generate output filename
         timestamp = int(time.time())
