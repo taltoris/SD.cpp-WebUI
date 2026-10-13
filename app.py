@@ -50,6 +50,17 @@ current_model_type = None
 server_port = 8080
 is_generating = False
 
+# Standard scheduler names recognized by sd.cpp --scheduler.
+# Anything else (e.g. "qwen-image-2.1-turbo") is treated as a --sigmas preset name.
+STANDARD_SCHEDULERS = {
+    'normal', 'karras', 'exponential', 'sgm_uniform', 'simple',
+    'ddim_uniform', 'beta', 'discrete'
+}
+
+def is_sigma_preset(scheduler):
+    """Return True if the scheduler value is a sigma preset name rather than a standard scheduler."""
+    return scheduler is not None and str(scheduler) not in STANDARD_SCHEDULERS
+
 def get_file_size_human(size_bytes):
     """Convert bytes to human readable format"""
     for unit in ['B', 'KB', 'MB', 'GB']:
@@ -231,10 +242,16 @@ def load_model():
         '--cfg-scale': data.get('cfg_scale', '1.0'),
         '--guidance': data.get('guidance', '3.5'),
         '--sampling-method': data.get('sampling_method', 'euler'),
-        '--scheduler': data.get('scheduler', 'discrete'),
         '--rng': data.get('rng', 'cuda'),
         '--sampler-rng':'cuda'
     }
+
+    # Scheduler vs sigma preset: non-standard values are passed via --sigmas
+    scheduler_val = data.get('scheduler', 'discrete')
+    if is_sigma_preset(scheduler_val):
+        generation_params['--sigmas'] = scheduler_val
+    else:
+        generation_params['--scheduler'] = scheduler_val
 
     for flag, value in generation_params.items():
         if value is not None:
@@ -507,7 +524,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             "steps": steps,
             "cfg-scale": cfg_scale,
             "sampler": sampler,
-            "scheduler": scheduler,
+            **({"sigmas": scheduler} if is_sigma_preset(scheduler) else {"scheduler": scheduler}),
             "guidance": guidance,
             "seed": seed,
             "strength": strength if strength is not None else 0.75
@@ -603,7 +620,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             "steps": steps,
             "cfg-scale": cfg_scale,
             "sampler": sampler,
-            "scheduler": scheduler,
+            **({"sigmas": scheduler} if is_sigma_preset(scheduler) else {"scheduler": scheduler}),
             "guidance": guidance,
             "seed": seed
         }
@@ -700,7 +717,10 @@ def generate_via_cli(prompt, negative_prompt, height, width, steps, cfg_scale, s
     cmd.extend(['--cfg-scale', str(cfg_scale)])
     cmd.extend(['--seed', str(seed)])
     cmd.extend(['--sampling-method', sampler])
-    cmd.extend(['--scheduler', scheduler])
+    if is_sigma_preset(scheduler):
+        cmd.extend(['--sigmas', scheduler])
+    else:
+        cmd.extend(['--scheduler', scheduler])
     cmd.extend(['--guidance', str(guidance)])
     cmd.extend(['--lora-model-dir', './models/lora'])
 

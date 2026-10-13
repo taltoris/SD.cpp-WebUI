@@ -175,16 +175,16 @@
   },
   "qwen_image_2.1": {
      "name": "Qwen IMG 2.1",
-     "description": "Just getting started",
+     "description": "Qwen Image 2.1 with Qwen3-VL-8B text encoder (text-to-image and image editing)",
      "models": {
        "diffusion": "qwen_image_2.1-Q6_K.gguf",
        "llm": "Qwen3VL-8B-Instruct-Q4_K_M.gguf",
-       "llm_vision":"mmproj-Qwen3VL-8B-Instruct-F16.gguf",
+       "llm_vision": "mmproj-Qwen3VL-8B-Instruct-F16.gguf",
        "vae": "qwen_image_2.1_vae_bf16.safetensors"
      },
      "defaults": {
        "sampler": "euler",
-       "CFG_scale": 2.5,
+       "CFG_scale": 6.0,
        "guidance": 3.5,
        "steps": 20,
        "scheduler": "sgm_uniform",
@@ -196,6 +196,31 @@
      "params": {
        "enable_CFG": true,
        "enable_negative_prompt": true
+     }
+  },
+  "qwen_image_2.1_turbo": {
+     "name": "Qwen IMG 2.1 Turbo",
+     "description": "Qwen Image 2.1 Turbo distilled model - fast generation in 4-8 steps, CFG 1.0",
+     "models": {
+       "diffusion": "qwen_image_2.1_turbo_Q6_K.gguf",
+       "llm": "Qwen3VL-8B-Instruct-Q4_K_M.gguf",
+       "llm_vision": "mmproj-Qwen3VL-8B-Instruct-F16.gguf",
+       "vae": "qwen_image_2.1_vae_bf16.safetensors"
+     },
+     "defaults": {
+       "sampler": "euler",
+       "CFG_scale": 1.0,
+       "guidance": 3.5,
+       "steps": 8,
+       "scheduler": "qwen-image-2.1-turbo",
+       "VAE_tiling": true,
+       "Offload-to-CPU": true,
+       "FA": true,
+       "showGuidance": false
+     },
+     "params": {
+       "enable_CFG": true,
+       "enable_negative_prompt": false
      }
   },
   "all": {
@@ -253,7 +278,8 @@
       "simple",
       "ddim_uniform",
       "beta",
-      "discrete"
+      "discrete",
+      "qwen-image-2.1-turbo"
     ]
   }
 }
