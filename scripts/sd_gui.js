@@ -12,6 +12,10 @@ t5: [],
 llm_vision: []
 };
 
+// Timestamp (unix seconds) of the most recent generation request. Used to
+// scope gallery refreshes so an incognito delete can't race a thumbnail in.
+var lastGenerationTime = 0;
+
 // DOM Elements cache
 var elements = {};
 
@@ -56,6 +60,7 @@ sampler: document.getElementById('sampler'),
 scheduler: document.getElementById('scheduler'),
 
 // Advanced options
+incognitoMode: document.getElementById('incognitoMode'),
 vaeTiling: document.getElementById('vaeTiling'),
 offloadCpu: document.getElementById('offloadCpu'),
 diffusionFa: document.getElementById('diffusionFa'),
@@ -913,6 +918,10 @@ sampler: elements.sampler ? elements.sampler.value : 'euler',
 scheduler: elements.scheduler ? elements.scheduler.value : 'normal'
 };
 
+if (elements.incognitoMode && elements.incognitoMode.checked) {
+params.incognito = true;
+}
+
 var modelConfig = config[currentModelType];
 if (modelConfig && modelConfig.defaults && modelConfig.defaults.showGuidance && elements.guidance) {
 params.guidance = parseFloat(elements.guidance.value);
@@ -964,6 +973,7 @@ async function generateImage() {
     setServerBusyStatus(true);
 
     var params = buildGenerationParams();
+    lastGenerationTime = Date.now() / 1000;
     console.log('Generating image with params:', params);
 
     try {
@@ -1038,8 +1048,10 @@ async function generateImage() {
             
             // Wait a bit then check gallery
             setTimeout(async () => {
-                await loadGallery();
-                var galleryResponse = await fetch('/list_outputs');
+                // Scope to this request so a stale file from an earlier run
+                // can't be picked up as "the" result.
+                await loadGallery(lastGenerationTime);
+                var galleryResponse = await fetch('/list_outputs?since=' + lastGenerationTime);
                 var galleryData = await galleryResponse.json();
                 
                 if (galleryData.files && galleryData.files.length > 0) {
@@ -1101,7 +1113,7 @@ async function generateImage() {
             
             // Poll gallery after timeout
             setTimeout(async () => {
-                await loadGallery();
+                await loadGallery(lastGenerationTime);
             }, 2000);
         } else {
             showMessage('Failed to generate image: ' + error.message, 'error');
@@ -1221,6 +1233,13 @@ video_frames: elements.videoFrames ? parseInt(elements.videoFrames.value) : 16,
 fps: elements.fps ? parseInt(elements.fps.value) : 24
 };
 
+// #incognitoMode lives in the shared sidebar, so this one checkbox governs both
+// tabs. generate() and generate_video() are the only readers, and neither is
+// reached from the other's tab, so a video run can't pick up an image setting.
+if (elements.incognitoMode && elements.incognitoMode.checked) {
+params.incognito = true;
+}
+
 try {
 var fileInput = elements.videoInitImage;
 if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -1273,7 +1292,9 @@ if (elements.videoLoadingIndicator) elements.videoLoadingIndicator.classList.rem
 }
 
 // Load gallery
-async function loadGallery() {
+// Pass excludeBefore to hide files that predate a boundary (used after an
+// incognito generation, whose file is deleted and must not flash in the grid).
+async function loadGallery(excludeBefore) {
 console.log('Loading gallery...');
 
 if (!elements.galleryGrid) {
@@ -1282,7 +1303,11 @@ return;
 }
 
 try {
-var response = await fetch('/list_outputs');
+var url = '/list_outputs';
+if (excludeBefore) {
+url += '?since=' + excludeBefore;
+}
+var response = await fetch(url);
 var data = await response.json();
 
 console.log('Gallery data:', data);

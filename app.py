@@ -456,6 +456,7 @@ def generate():
         if success:
             # Vectorize if enabled
             svg_filename = None
+            svg_path = None
             if vectorize_enabled:
                 try:
                     import sys
@@ -482,6 +483,28 @@ def generate():
                     logger.info(f"Vectorized output saved to: {svg_path}")
                 except Exception as vec_error:
                     logger.error(f"Vectorization failed: {vec_error}")
+
+            if data.get('incognito'):
+                svg_out = None
+                try:
+                    with open(output_path, 'rb') as f:
+                        raw = base64.b64encode(f.read()).decode('ascii')
+                    if svg_filename:
+                        with open(svg_path, 'rb') as f:
+                            svg_out = base64.b64encode(f.read()).decode('ascii')
+                finally:
+                    # svg_path stays None unless vectorize produced one this request.
+                    for p in (output_path, svg_path):
+                        if not p:
+                            continue
+                        try: os.remove(p)
+                        except OSError: pass
+
+                resp = {'status': 'success', 'incognito': True, 'image': raw,
+                        'message': 'Image generated (not saved)'}
+                if svg_out is not None:
+                    resp['svg'] = svg_out
+                return jsonify(resp)
             
             response = {
                 'status': 'success',
@@ -849,6 +872,13 @@ def generate_video():
         if os.path.exists(output_path):
             with open(output_path, 'rb') as f:
                 video_data = base64.b64encode(f.read()).decode('utf-8')
+            
+            if data.get('incognito'):
+                try:
+                    os.remove(output_path)
+                except Exception as e:
+                    logger.warning(f"Failed to remove incognito output file: {e}")
+
             return jsonify({'video': video_data, 'path': output_path})
         elif 'video' in result:
             # If the server returns base64 video directly
@@ -862,6 +892,7 @@ def generate_video():
 @app.route('/list_outputs')
 def list_outputs():
     """List generated images and videos"""
+    since = request.args.get('since', type=float)  # optional: filter by mtime > since
     files = []
     if os.path.exists(OUTPUT_DIR):
         for filename in os.listdir(OUTPUT_DIR):
@@ -871,11 +902,17 @@ def list_outputs():
             # Check for both images and videos
             if ext in ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'avi', 'mov', 'webm', 'svg']:
                 file_type = 'video' if ext in ['mp4', 'avi', 'mov', 'webm'] else 'image'
+                mtime = os.path.getmtime(filepath)
+
+                # Optional: skip files older than 'since' timestamp
+                if since is not None and mtime <= since:
+                    continue
+
                 files.append({
                     'name': filename,
                     'url': f'/output/{filename}',
                     'path': filepath,
-                    'mtime': os.path.getmtime(filepath),
+                    'mtime': mtime,
                     'type': file_type,
                     'size': os.path.getsize(filepath),
                     'size_human': get_file_size_human(os.path.getsize(filepath))
