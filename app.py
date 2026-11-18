@@ -58,8 +58,12 @@ STANDARD_SCHEDULERS = {
 }
 
 def is_sigma_preset(scheduler):
-    """Return True if the scheduler value is a sigma preset name rather than a standard scheduler."""
-    return scheduler is not None and str(scheduler) not in STANDARD_SCHEDULERS
+    """Return True if the scheduler value is a non-empty sigma preset name.
+
+    Blank/None falls through to --scheduler, which for MiniMax-H3-Image means the
+    default discrete schedule (equivalent to --sigmas minimax-h3-image at 6 steps).
+    """
+    return bool(scheduler) and str(scheduler).strip() not in STANDARD_SCHEDULERS
 
 def get_file_size_human(size_bytes):
     """Convert bytes to human readable format"""
@@ -552,6 +556,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             "seed": seed,
             "strength": strength if strength is not None else 0.75
         }
+        extra_args = {k: v for k, v in extra_args.items() if v not in (None, '')}
         
         if negative_prompt and negative_prompt.strip():
             extra_args["negative-prompt"] = negative_prompt
@@ -647,6 +652,7 @@ def generate_via_api(prompt, negative_prompt, height, width, steps, cfg_scale, s
             "guidance": guidance,
             "seed": seed
         }
+        extra_args = {k: v for k, v in extra_args.items() if v not in (None, '')}
         
         if negative_prompt and negative_prompt.strip():
             extra_args["negative-prompt"] = negative_prompt

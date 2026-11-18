@@ -223,6 +223,31 @@
        "enable_negative_prompt": false
      }
   },
+  "minimax_h3_image": {
+     "name": "MiniMax H3 Image",
+     "description": "MiniMax-H3-Image: text-to-image and reference-image editing from one checkpoint. Six-step PDD schedule, CFG 1.0. P-H3-Image (Qwen3-VL-4B + connector) encoder, ~5 GB. No audio VAE needed.",
+     "models": {
+       "diffusion": "minimax_h3_image_pruned-Q4_K_M.gguf",
+       "llm": "p-h3-image_text_encoder_int8_convrot.safetensors",
+       "vae": "minimax_h3_image_vae_fp16.safetensors"
+     },
+     "defaults": {
+       "sampler": "euler",
+       "CFG_scale": 1.0,
+       "steps": 6,
+       "scheduler": "minimax-h3-image",
+       "width": 1024,
+       "height": 1024,
+       "VAE_tiling": true,
+       "Offload-to-CPU": true,
+       "FA": true,
+       "showGuidance": false
+     },
+     "params": {
+       "enable_CFG": false,
+       "enable_negative_prompt": false
+     }
+  },
   "all": {
     "defaults": {
       "width": 768,
