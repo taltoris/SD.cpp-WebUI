@@ -1,6 +1,6 @@
 models/
 output/
-__pychace__/
+__pycache__/
 *.pyc
-
 .residuality/
+docker-compose.yml
